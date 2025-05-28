@@ -46,7 +46,7 @@ We're constantly working to improve BoardStack! Here are some features we plan t
 ## Credits
 BoardStack was created by Corvettefan101, Vercel V0, Logo was created by ChatGPT-4o ImageGen, and Read Me by Gemini 2.5 Flash
 ## License
-BoardStack is open-source software licensed under the [MIT License](LICENSE.md).
+BoardStack is open-source software licensed under the [MIT License](LICENSE).
 
 ## Contact
 If you have any questions, feedback, or issues, feel free to open an issue on this repository or reach out:
