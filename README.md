@@ -73,3 +73,5 @@ BoardStack is open-source software licensed under the [MIT License](LICENSE.md).
 ## Contact
 If you have any questions, feedback, or issues, feel free to open an issue on this repository or reach out:
 *  **Discord:** Corvettefan101 #1738
+
+BoardStack isn't made to infringe on any trademarks or any copyright, if you have a problem reach out and we can have a conversation
