@@ -31,7 +31,7 @@ Experience BoardStack directly in your browser:
 🚀 **[Launch BoardStack](https://v0-boardstack-eosin.vercel.app/)**
 
 **Quick Start:**
-1.  Click the "Launch BoardStack Live Demo" link above.
+1. Click the "Launch BoardStack" link above.
 2. Create a new account and Start creating new boards and adding tasks right away! Your data is saved **locally** in your browser.
 
 **UI Preview:**
