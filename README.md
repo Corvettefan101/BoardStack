@@ -35,9 +35,9 @@ Experience BoardStack directly in your browser:
 1.  Click the "Launch BoardStack Live Demo" link above.
 2. Create a new account and Start creating new boards and adding tasks right away! Your data is saved **locally** in your browser.
 
-**Visuals:**
-*(Consider adding a GIF or a few screenshots here showing the core functionality.)*
-<!-- Example: ![BoardStack in action](link-to-your-gif-or-screenshot.gif) -->
+**UI Preview:**
+![Screenshot 2025-05-28 091607](https://github.com/user-attachments/assets/3706d456-a81e-41cc-bb8d-53f59deea868)
+
 
 ## Getting Started (Local Development)
 
@@ -72,5 +72,4 @@ BoardStack is open-source software licensed under the [MIT License](LICENSE.md).
 
 ## Contact
 If you have any questions, feedback, or issues, feel free to open an issue on this repository or reach out:
-*   **GitHub Issues:** [BoardStack Issues](https://github.com/Board-Stack/BoardStack/issues)
 *  **Discord:** Corvettefan101 #1738
