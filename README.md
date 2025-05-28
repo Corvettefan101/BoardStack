@@ -37,27 +37,6 @@ Experience BoardStack directly in your browser:
 **UI Preview:**
 ![Screenshot 2025-05-28 091607](https://github.com/user-attachments/assets/3706d456-a81e-41cc-bb8d-53f59deea868)
 
-
-## Getting Started (Local Development)
-
-To run BoardStack locally on your machine:
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/Board-Stack/BoardStack.git
-    cd BoardStack
-    ```
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    # or yarn install
-    ```
-3.  **Run the development server:**
-    ```bash
-    npm run dev
-    # or yarn dev
-    ```
-4.  Open your browser and navigate to `http://localhost:3000` (or whatever port your server starts on).
 ## Future Plans
 We're constantly working to improve BoardStack! Here are some features we plan to implement:
 *   **Universal Database Support:** Integration with cloud databases (e.g., Firebase, Supabase) for cross-device synchronization.
