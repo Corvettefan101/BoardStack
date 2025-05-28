@@ -39,8 +39,8 @@ Experience BoardStack directly in your browser:
 
 ## Future Plans
 We're constantly working to improve BoardStack! Here are some features we plan to implement:
-*   **Universal Database Support:** Integration with cloud databases (e.g., Firebase, Supabase) for cross-device synchronization.
-*   **User Authentication:** Secure login for personal boards.
+*   **Universal Database Support:** Integration with cloud databases (Supabase or Turso) for cross-device synchronization.
+*   **User Authentication:** Secure login for personal boards and sign in with google via Clerk.
 *   **Collaboration Features:** Allow multiple users to work on the same board.
 *  **Customizable Themes:** Personalize the look and feel of your boards.
 ## Credits
