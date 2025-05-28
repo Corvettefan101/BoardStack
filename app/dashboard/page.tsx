@@ -1,0 +1,42 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { Header } from "@/components/header"
+import { BoardGrid } from "@/components/board-grid"
+import { LoadingScreen } from "@/components/loading-screen"
+import { ProtectedRoute } from "@/components/protected-route"
+import { useUserBoards } from "@/hooks/use-user-boards"
+
+export default function Dashboard() {
+  const [isClient, setIsClient] = useState(false)
+  const { isLoaded, ensureUserBoards } = useUserBoards()
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (isClient && isLoaded) {
+      ensureUserBoards()
+    }
+  }, [isClient, isLoaded, ensureUserBoards])
+
+  if (!isClient || !isLoaded) {
+    return <LoadingScreen />
+  }
+
+  return (
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Your Boards</h1>
+            <p className="text-gray-600 dark:text-gray-400">Organize your projects and boost productivity</p>
+          </div>
+          <BoardGrid />
+        </main>
+      </div>
+    </ProtectedRoute>
+  )
+}
