@@ -9,8 +9,7 @@
 ## Table of Contents
 - [About BoardStack](#about-boardstack)
 - [Features](#features)
-- [Live Demo & How to Use](#live-demo--how-to-use)
-- [Getting Started (Local Development)](#getting-started-local-development)
+- [How to Use](#how-to-use)
 - [Future Plans](#future-plans)
 - [Credits](#credits)
 - [License](#license)
@@ -26,10 +25,10 @@ BoardStack is currently a free and open-source web application that offers a mod
 *   **Open Source:** Transparent and community-driven development.
 *   **Export/Import Options:** Ability to export boards as JSON or other formats.
 
-## Live Demo & How to Use
+## How to Use
 
 Experience BoardStack directly in your browser:
-🚀 **[Launch BoardStack Live Demo](https://v0-boardstack-eosin.vercel.app/)**
+🚀 **[Launch BoardStack](https://v0-boardstack-eosin.vercel.app/)**
 
 **Quick Start:**
 1.  Click the "Launch BoardStack Live Demo" link above.
