@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowRight, CheckCircle, Zap, Users, Shield, Sparkles } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { useAuthStore } from "@/store/auth-store"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function LandingPage() {
-  const { isAuthenticated, isLoaded } = useAuthStore()
+  const { isAuthenticated, isLoaded } = useAuth()
 
   const features = [
     {

@@ -1,0 +1,11 @@
+{
+  "project": "small-shrimp-265",
+  "team": "corvettefan101",
+  "prodUrl": "https://small-shrimp-265.convex.cloud",
+  "functions": {
+    "codegen": {
+      "path": "convex/_generated/api.ts",
+      "generateImportSyntax": true
+    }
+  }
+}

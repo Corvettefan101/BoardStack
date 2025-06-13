@@ -15,12 +15,12 @@ import { Settings, Plus, LogOut, User } from "lucide-react"
 import { useState } from "react"
 import { CreateBoardDialog } from "./create-board-dialog"
 import { ThemeToggle } from "./theme-toggle"
-import { useAuthStore } from "@/store/auth-store"
+import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
 
 export function Header() {
   const [showCreateBoard, setShowCreateBoard] = useState(false)
-  const { currentUser, logout, isAuthenticated } = useAuthStore()
+  const { currentUser, logout, isAuthenticated } = useAuth()
   const router = useRouter()
 
   const handleLogout = () => {

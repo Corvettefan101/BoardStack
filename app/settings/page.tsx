@@ -13,14 +13,14 @@ import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Upload, Download, Trash2, FileText, Key } from "lucide-react"
 import Link from "next/link"
-import { useAuthStore } from "@/store/auth-store"
+import { useAuth } from "@/hooks/use-auth"
 import { useUserBoards } from "@/hooks/use-user-boards"
 import { LoadingScreen } from "@/components/loading-screen"
 import { ProtectedRoute } from "@/components/protected-route"
 
 export default function SettingsPage() {
   const [isClient, setIsClient] = useState(false)
-  const { currentUser, updateProfile, changePassword, deleteAccount, isLoaded: authLoaded } = useAuthStore()
+  const { currentUser, updateProfile, changePassword, deleteAccount, isLoaded: authLoaded } = useAuth()
   const { clearUserData, exportUserData, importUserData, isLoaded: boardLoaded } = useUserBoards()
 
   const [name, setName] = useState("")
