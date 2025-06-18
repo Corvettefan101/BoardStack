@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-server" // Direct import for API routes
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,9 +59,11 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
 
+    console.log("🔍 Auth check result:", { user: user?.id, error: authError })
+
     if (authError) {
       console.error("❌ Auth error:", authError)
-      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
+      return NextResponse.json({ error: "Authentication failed", details: authError }, { status: 401 })
     }
 
     if (!user) {
@@ -71,9 +73,31 @@ export async function POST(request: NextRequest) {
 
     console.log("✅ User authenticated:", user.id)
 
+    // Check if user has a profile
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .single()
+
+    console.log("🔍 Profile check result:", { profile: profile?.id, error: profileError })
+
+    if (profileError || !profile) {
+      console.error("❌ User profile not found:", profileError)
+      return NextResponse.json(
+        {
+          error: "User profile not found. Please contact support.",
+          details: profileError,
+        },
+        { status: 400 },
+      )
+    }
+
     // Parse request body
     const body = await request.json()
     const { title, description } = body
+
+    console.log("🔍 Request body:", { title, description })
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
@@ -81,28 +105,46 @@ export async function POST(request: NextRequest) {
 
     console.log("📝 Creating board with title:", title)
 
-    // Create the board
-    const { data: board, error: boardError } = await supabase
-      .from("boards")
-      .insert({
-        title,
-        description: description || "",
-        user_id: user.id,
-        is_archived: false,
-      })
-      .select()
-      .single()
+    // Create the board with explicit values
+    const boardData = {
+      title: title.toString(),
+      description: description ? description.toString() : null,
+      user_id: user.id,
+      is_archived: false,
+      is_public: false,
+      background_color: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    console.log("🔍 Board data to insert:", boardData)
+
+    const { data: board, error: boardError } = await supabase.from("boards").insert(boardData).select().single()
 
     if (boardError) {
       console.error("❌ Database error creating board:", boardError)
-      return NextResponse.json({ error: "Failed to create board", details: boardError }, { status: 500 })
+      console.error("❌ Full error details:", JSON.stringify(boardError, null, 2))
+      return NextResponse.json(
+        {
+          error: "Failed to create board",
+          details: boardError,
+          boardData: boardData,
+        },
+        { status: 500 },
+      )
     }
 
-    console.log("✅ Board created successfully:", board.id)
+    console.log("✅ Board created successfully:", board?.id)
 
     return NextResponse.json({ board })
   } catch (error) {
     console.error("❌ Unexpected error in POST /api/boards:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }

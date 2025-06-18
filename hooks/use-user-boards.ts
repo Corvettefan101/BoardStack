@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import type { Board, Column, Card, Tag } from "@/types"
 import { supabase } from "@/lib/supabase-client" // Direct client import
@@ -12,7 +12,8 @@ export function useUserBoards() {
 
   const [boards, setBoards] = useState<Board[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
-  const [error, setError] = useState<PostgrestError | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<PostgrestError | string | null>(null)
 
   // Fetch boards
   const fetchBoards = useCallback(async () => {
@@ -22,6 +23,10 @@ export function useUserBoards() {
     }
 
     try {
+      setIsLoading(true)
+      setError(null)
+      console.log("🔍 Fetching boards via API route...")
+
       // Get boards where user is owner or member
       const { data: boardsData, error: boardsError } = await supabase
         .from("boards")
@@ -179,9 +184,12 @@ export function useUserBoards() {
       )
 
       setBoards(boardsWithDetails.filter(Boolean) as Board[])
+      console.log("✅ Boards fetched successfully:", allBoardsData?.length || 0)
     } catch (err) {
-      console.error("Error fetching boards:", err)
+      console.error("❌ Error fetching boards:", err)
+      setError(err instanceof Error ? err.message : "Failed to fetch boards")
     } finally {
+      setIsLoading(false)
       setIsLoaded(true)
     }
   }, [userId])
@@ -193,66 +201,80 @@ export function useUserBoards() {
 
   // Board operations
   const createBoard = useCallback(
-    async (title: string) => {
-      if (!userId) return
+    async (title: string, description?: string): Promise<Board | undefined> => {
+      if (!userId) return undefined
 
       try {
+        console.log("🔍 Creating board via API route:", { title, description })
+
         const { data, error } = await supabase
           .from("boards")
           .insert({
             title,
             user_id: userId,
             is_archived: false,
+            description,
           })
           .select()
           .single()
 
         if (error) {
           setError(error)
-          return
+          return undefined
         }
 
         // Refetch boards to get the new board with columns
-        fetchBoards()
+        await fetchBoards()
+        console.log("✅ Board created successfully:", data)
+        return data as Board
       } catch (err) {
-        console.error("Error creating board:", err)
+        console.error("❌ Error creating board:", err)
+        throw err
       }
     },
     [userId, fetchBoards],
   )
 
   const updateBoard = useCallback(
-    async (id: string, updates: Partial<Board>) => {
-      if (!userId) return
+    async (id: string, updates: Partial<Board>): Promise<Board | undefined> => {
+      if (!userId) return undefined
 
       try {
-        const { error } = await supabase
+        console.log("🔍 Updating board via API route:", { id, updates })
+
+        const { data, error } = await supabase
           .from("boards")
           .update({
             title: updates.title,
             description: updates.description,
           })
           .eq("id", id)
+          .select()
+          .single()
 
         if (error) {
           setError(error)
-          return
+          return undefined
         }
 
         // Update local state
-        setBoards((prev) => prev.map((board) => (board.id === id ? { ...board, ...updates } : board)))
+        setBoards((prev) => prev.map((board) => (board.id === id ? { ...board, ...data } : board)))
+        console.log("✅ Board updated successfully:", data)
+        return data as Board
       } catch (err) {
-        console.error("Error updating board:", err)
+        console.error("❌ Error updating board:", err)
+        throw err
       }
     },
     [userId],
   )
 
   const deleteBoard = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<void> => {
       if (!userId) return
 
       try {
+        console.log("🔍 Deleting board via API route:", id)
         // Archive instead of delete
         const { error } = await supabase.from("boards").update({ is_archived: true }).eq("id", id)
 
@@ -263,8 +285,10 @@ export function useUserBoards() {
 
         // Update local state
         setBoards((prev) => prev.filter((board) => board.id !== id))
+        console.log("✅ Board deleted successfully")
       } catch (err) {
-        console.error("Error deleting board:", err)
+        console.error("❌ Error deleting board:", err)
+        throw err
       }
     },
     [userId],
@@ -781,6 +805,7 @@ export function useUserBoards() {
   return {
     boards,
     isLoaded,
+    isLoading,
     error,
     createBoard,
     updateBoard,
@@ -796,5 +821,6 @@ export function useUserBoards() {
     exportUserData,
     importUserData,
     ensureUserBoards,
+    refetch: fetchBoards,
   }
 }
