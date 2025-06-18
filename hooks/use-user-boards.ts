@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import type { Board, Column, Card, Tag } from "@/types"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase-client" // Direct client import
 import type { PostgrestError } from "@supabase/supabase-js"
 
 export function useUserBoards() {

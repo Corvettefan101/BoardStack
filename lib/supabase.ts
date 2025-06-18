@@ -1,24 +1,34 @@
 /**
- * Barrel file that conditionally exports client/server utilities
- * to avoid importing next/headers on the client side
+ * Shared Supabase helpers
+ *
+ * • supabase, getSupabaseClient – client-side utilities
+ * • createServerSupabaseClient  – server-only helper
+ *
+ * IMPORTANT:  We avoid importing `next/headers` at module scope so
+ *             the client bundle never pulls it in.
  */
 
-// Always safe to export client-side utilities
 export { supabase, getSupabaseClient } from "./supabase-client"
 
-// Conditionally export server utilities only when on server
-export const createServerSupabaseClient = (() => {
-  // Only import server utilities when actually on the server
-  if (typeof window === "undefined") {
-    // Dynamic import to avoid bundling server code on client
-    return async () => {
-      const { createServerSupabaseClient: serverClient } = await import("./supabase-server")
-      return serverClient()
-    }
+/**
+ * Server-only factory.
+ * Uses `require` inside the function so the dependency on
+ * `next/headers` is never evaluated in the browser bundle.
+ */
+import type { SupabaseClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "./database.types"
+
+export function createServerSupabaseClient(): SupabaseClient<Database> {
+  if (typeof window !== "undefined") {
+    throw new Error("createServerSupabaseClient can only be used on the server")
   }
 
-  // Return a no-op function for client-side (should never be called)
-  return () => {
-    throw new Error("createServerSupabaseClient can only be used on the server side")
-  }
-})()
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { createServerComponentClient } = require("@supabase/auth-helpers-nextjs") as typeof import(
+    "@supabase/auth-helpers-nextjs",
+  )
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { cookies } = require("next/headers") as typeof import("next/headers")
+
+  return createServerComponentClient<Database>({ cookies })
+}
