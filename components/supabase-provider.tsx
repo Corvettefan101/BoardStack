@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useEffect, useState } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/supabase-js"
@@ -23,13 +22,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Use the auth helpers client for consistency
   const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
-    console.log("Initial session check...")
+    console.log("🔍 Initial session check...")
 
-    // Get initial session
     const getInitialSession = async () => {
       try {
         const {
@@ -38,15 +35,15 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         } = await supabase.auth.getSession()
 
         if (error) {
-          console.error("Error getting initial session:", error)
+          console.error("❌ Error getting initial session:", error)
         } else if (session?.user) {
-          console.log("Initial session check: Session found")
+          console.log("✅ Initial session found for user:", session.user.email)
           setUser(session.user)
         } else {
-          console.log("Initial session check: No session")
+          console.log("ℹ️ No initial session found")
         }
       } catch (error) {
-        console.error("Error in initial session check:", error)
+        console.error("❌ Error in initial session check:", error)
       } finally {
         setIsLoading(false)
       }
@@ -54,22 +51,21 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     getInitialSession()
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state change:", event, session ? "Session exists" : "No session")
+      console.log("🔄 Auth state change:", event, session?.user?.email || "No user")
 
       if (session?.user) {
         setUser(session.user)
         if (event === "SIGNED_IN") {
-          console.log("User signed in, redirecting to dashboard")
+          console.log("✅ User signed in, redirecting to dashboard")
           router.push("/dashboard")
         }
       } else {
         setUser(null)
         if (event === "SIGNED_OUT") {
-          console.log("User signed out, redirecting to login")
+          console.log("👋 User signed out, redirecting to login")
           router.push("/login")
         }
       }
@@ -84,32 +80,27 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback-handler`,
-        },
-      })
+      console.log("🚀 Starting Google sign-in...")
 
-      if (error) {
-        console.error("Google sign-in error:", error)
-        throw error
-      }
+      // Use the API route for consistent OAuth flow
+      window.location.href = "/api/auth/google"
     } catch (error) {
-      console.error("Error signing in with Google:", error)
+      console.error("❌ Error signing in with Google:", error)
       throw error
     }
   }
 
   const signOut = async () => {
     try {
+      console.log("👋 Signing out...")
       const { error } = await supabase.auth.signOut()
       if (error) {
-        console.error("Sign out error:", error)
+        console.error("❌ Sign out error:", error)
         throw error
       }
+      console.log("✅ Signed out successfully")
     } catch (error) {
-      console.error("Error signing out:", error)
+      console.error("❌ Error signing out:", error)
       throw error
     }
   }
