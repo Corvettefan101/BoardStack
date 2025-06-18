@@ -207,28 +207,34 @@ export function useUserBoards() {
       try {
         console.log("🔍 Creating board via API route:", { title, description })
 
-        const { data, error } = await supabase
-          .from("boards")
-          .insert({
+        // Use the API route instead of direct Supabase call
+        const response = await fetch("/api/boards", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
             title,
-            user_id: userId,
-            is_archived: false,
-            description,
-          })
-          .select()
-          .single()
+            description: description || "",
+          }),
+        })
 
-        if (error) {
-          setError(error)
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("❌ API route error:", errorData)
+          setError(errorData.error || "Failed to create board")
           return undefined
         }
 
+        const { board } = await response.json()
+        console.log("✅ Board created successfully via API route:", board)
+
         // Refetch boards to get the new board with columns
         await fetchBoards()
-        console.log("✅ Board created successfully:", data)
-        return data as Board
+        return board as Board
       } catch (err) {
         console.error("❌ Error creating board:", err)
+        setError(err instanceof Error ? err.message : "Failed to create board")
         throw err
       }
     },
