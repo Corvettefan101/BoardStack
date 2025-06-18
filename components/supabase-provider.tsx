@@ -66,9 +66,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false)
 
         // Handle specific auth events
-        if (event === "SIGNED_IN") {
+        if (event === "SIGNED_IN" && session) {
+          console.log("User signed in, redirecting to dashboard")
           router.push("/dashboard")
         } else if (event === "SIGNED_OUT") {
+          console.log("User signed out, redirecting to login")
           router.push("/login")
         }
       }
