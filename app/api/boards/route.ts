@@ -1,46 +1,108 @@
-import { NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { type NextRequest, NextResponse } from "next/server"
+import { createServerSupabaseClient } from "@/lib/supabase-server" // Direct import for API routes
 
-export const dynamic = "force-dynamic"
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    console.log("🔍 GET /api/boards - Starting request")
+
     const supabase = createServerSupabaseClient()
 
-    const { data: boards, error } = await supabase.from("boards").select("*").order("created_at", { ascending: false })
+    // Get the current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (error) {
-      console.error("Error fetching boards:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (authError) {
+      console.error("❌ Auth error:", authError)
+      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
     }
 
-    return NextResponse.json({ boards }, { status: 200 })
+    if (!user) {
+      console.error("❌ No user found")
+      return NextResponse.json({ error: "User not authenticated" }, { status: 401 })
+    }
+
+    console.log("✅ User authenticated:", user.id)
+
+    // Get boards for the user
+    const { data: boards, error: boardsError } = await supabase
+      .from("boards")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false })
+
+    if (boardsError) {
+      console.error("❌ Database error fetching boards:", boardsError)
+      return NextResponse.json({ error: "Failed to fetch boards", details: boardsError }, { status: 500 })
+    }
+
+    console.log("✅ Boards fetched successfully:", boards?.length || 0)
+
+    return NextResponse.json({ boards: boards || [] })
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error("❌ Unexpected error in GET /api/boards:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    console.log("🔍 POST /api/boards - Starting request")
+
     const supabase = createServerSupabaseClient()
 
-    const { title } = await request.json()
+    // Get the current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError) {
+      console.error("❌ Auth error:", authError)
+      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
+    }
+
+    if (!user) {
+      console.error("❌ No user found")
+      return NextResponse.json({ error: "User not authenticated" }, { status: 401 })
+    }
+
+    console.log("✅ User authenticated:", user.id)
+
+    // Parse request body
+    const body = await request.json()
+    const { title, description } = body
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
-    const { data: newBoard, error } = await supabase.from("boards").insert({ title }).select("*").single()
+    console.log("📝 Creating board with title:", title)
 
-    if (error) {
-      console.error("Error creating board:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    // Create the board
+    const { data: board, error: boardError } = await supabase
+      .from("boards")
+      .insert({
+        title,
+        description: description || "",
+        user_id: user.id,
+        is_archived: false,
+      })
+      .select()
+      .single()
+
+    if (boardError) {
+      console.error("❌ Database error creating board:", boardError)
+      return NextResponse.json({ error: "Failed to create board", details: boardError }, { status: 500 })
     }
 
-    return NextResponse.json({ board: newBoard }, { status: 201 })
+    console.log("✅ Board created successfully:", board.id)
+
+    return NextResponse.json({ board })
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error("❌ Unexpected error in POST /api/boards:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
