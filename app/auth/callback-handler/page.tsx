@@ -21,38 +21,58 @@ export default function AuthCallbackHandler() {
 
         const error = urlParams.get("error") || hashParams.get("error")
         const errorDescription = urlParams.get("error_description") || hashParams.get("error_description")
+        const code = urlParams.get("code")
 
         if (error) {
           console.error("❌ OAuth error:", error, errorDescription)
-
-          // Handle specific error cases
-          if (error === "server_error" && errorDescription?.includes("Database error saving new user")) {
-            console.log("🔄 Database error detected, attempting to complete sign-up...")
-
-            // Try to get the session anyway - sometimes the user is created despite the error
-            const { data, error: sessionError } = await supabase.auth.getSession()
-
-            if (!sessionError && data.session?.user) {
-              console.log("✅ Session found despite error, redirecting to dashboard")
-              router.push("/dashboard")
-              return
-            }
-          }
-
-          // For other errors, redirect to login with error message
           const errorMsg = errorDescription || error
           router.push(`/login?error=${encodeURIComponent(errorMsg)}`)
           return
         }
 
-        // Check if we have a hash fragment with auth data
+        // Handle PKCE flow with code parameter
+        if (code) {
+          console.log("✅ Found authorization code, exchanging for session...")
+
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+          if (exchangeError) {
+            console.error("❌ Error exchanging code for session:", exchangeError)
+            router.push(`/login?error=${encodeURIComponent(exchangeError.message)}`)
+            return
+          }
+
+          if (data.session?.user) {
+            console.log("✅ Session established for user:", data.session.user.email)
+
+            // Check if this is a new user
+            const user = data.session.user
+            const isNewUser = user.created_at === user.last_sign_in_at
+
+            console.log("🔍 User created:", user.created_at)
+            console.log("🔍 Last sign in:", user.last_sign_in_at)
+            console.log("🔍 Is new user:", isNewUser)
+
+            // Clean up the URL
+            window.history.replaceState(null, "", window.location.pathname)
+
+            // Redirect to dashboard
+            console.log("🚀 Redirecting to dashboard...")
+            router.push("/dashboard")
+          } else {
+            console.error("❌ No session found after code exchange")
+            router.push("/login?error=Authentication failed")
+          }
+          return
+        }
+
+        // Fallback: Check for hash-based auth (legacy flow)
         const hash = window.location.hash
-        console.log("Hash:", hash)
+        console.log("Hash:", hash || "<empty string>")
 
         if (hash && hash.includes("access_token")) {
           console.log("✅ Found access token in URL hash, processing session...")
 
-          // Let Supabase handle the session from the URL
           const { data, error: sessionError } = await supabase.auth.getSession()
 
           if (sessionError) {
@@ -63,11 +83,7 @@ export default function AuthCallbackHandler() {
 
           if (data.session?.user) {
             console.log("✅ Session established for user:", data.session.user.email)
-
-            // Clear the hash to clean up the URL
             window.history.replaceState(null, "", window.location.pathname)
-
-            // Redirect to dashboard
             console.log("🚀 Redirecting to dashboard...")
             router.push("/dashboard")
           } else {
