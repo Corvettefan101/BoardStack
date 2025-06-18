@@ -15,6 +15,36 @@ export default function AuthCallbackHandler() {
         console.log("🔄 Processing auth callback...")
         console.log("Current URL:", window.location.href)
 
+        // Check for error parameters in URL
+        const urlParams = new URLSearchParams(window.location.search)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+
+        const error = urlParams.get("error") || hashParams.get("error")
+        const errorDescription = urlParams.get("error_description") || hashParams.get("error_description")
+
+        if (error) {
+          console.error("❌ OAuth error:", error, errorDescription)
+
+          // Handle specific error cases
+          if (error === "server_error" && errorDescription?.includes("Database error saving new user")) {
+            console.log("🔄 Database error detected, attempting to complete sign-up...")
+
+            // Try to get the session anyway - sometimes the user is created despite the error
+            const { data, error: sessionError } = await supabase.auth.getSession()
+
+            if (!sessionError && data.session?.user) {
+              console.log("✅ Session found despite error, redirecting to dashboard")
+              router.push("/dashboard")
+              return
+            }
+          }
+
+          // For other errors, redirect to login with error message
+          const errorMsg = errorDescription || error
+          router.push(`/login?error=${encodeURIComponent(errorMsg)}`)
+          return
+        }
+
         // Check if we have a hash fragment with auth data
         const hash = window.location.hash
         console.log("Hash:", hash)
@@ -23,29 +53,21 @@ export default function AuthCallbackHandler() {
           console.log("✅ Found access token in URL hash, processing session...")
 
           // Let Supabase handle the session from the URL
-          const { data, error } = await supabase.auth.getSession()
+          const { data, error: sessionError } = await supabase.auth.getSession()
 
-          if (error) {
-            console.error("❌ Error getting session:", error)
-            router.push(`/login?error=${encodeURIComponent(error.message)}`)
+          if (sessionError) {
+            console.error("❌ Error getting session:", sessionError)
+            router.push(`/login?error=${encodeURIComponent(sessionError.message)}`)
             return
           }
 
           if (data.session?.user) {
             console.log("✅ Session established for user:", data.session.user.email)
 
-            // Check if this is a new user by looking at created_at vs last_sign_in_at
-            const user = data.session.user
-            const isNewUser = user.created_at === user.last_sign_in_at
-
-            console.log("🔍 User created:", user.created_at)
-            console.log("🔍 Last sign in:", user.last_sign_in_at)
-            console.log("🔍 Is new user:", isNewUser)
-
             // Clear the hash to clean up the URL
             window.history.replaceState(null, "", window.location.pathname)
 
-            // Always redirect to dashboard for both new and existing users
+            // Redirect to dashboard
             console.log("🚀 Redirecting to dashboard...")
             router.push("/dashboard")
           } else {
