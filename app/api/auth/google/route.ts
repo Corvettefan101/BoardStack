@@ -1,26 +1,27 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import type { Database } from "@/lib/database.types"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
 
     console.log("Auth request origin:", request.nextUrl.origin)
 
-    // Use the implicit flow (hash-based) instead of PKCE for now
+    // Use the server-side callback route for PKCE flow
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${request.nextUrl.origin}/auth/callback-handler`,
+        redirectTo: `${request.nextUrl.origin}/auth/callback`, // Use server-side callback
         queryParams: {
           access_type: "offline",
           prompt: "consent",
         },
-        // Force implicit flow to avoid PKCE issues
-        skipBrowserRedirect: false,
       },
     })
 
