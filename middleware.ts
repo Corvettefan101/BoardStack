@@ -7,8 +7,16 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next()
   const supabase = createMiddlewareClient<Database>({ req: request, res: response })
 
-  // Refresh session if expired
-  await supabase.auth.getSession()
+  // Refresh session if expired - this is important for auth state
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // Optional: Add logging for debugging
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    console.log(`API Request: ${request.method} ${request.nextUrl.pathname}`)
+    console.log(`User authenticated: ${!!session?.user}`)
+  }
 
   return response
 }

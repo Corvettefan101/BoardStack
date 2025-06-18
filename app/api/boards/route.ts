@@ -1,11 +1,12 @@
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import type { Database } from "@/lib/database.types"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = createRouteHandlerClient<Database>({ cookies })
 
   const {
     data: { user },
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false })
 
   if (error) {
+    console.error("Error fetching boards:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
@@ -29,7 +31,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = createRouteHandlerClient<Database>({ cookies })
 
   const {
     data: { user },
@@ -39,24 +41,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { title, description, background_color, is_public } = await request.json()
+  try {
+    const { title, description, background_color, is_public } = await request.json()
 
-  const { data, error } = await supabase
-    .from("boards")
-    .insert([
-      {
-        user_id: user.id,
-        title,
-        description,
-        background_color,
-        is_public,
-      },
-    ])
-    .select()
+    console.log("Creating board for user:", user.id)
+    console.log("Board data:", { title, description, background_color, is_public })
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    const { data, error } = await supabase
+      .from("boards")
+      .insert([
+        {
+          user_id: user.id,
+          title,
+          description,
+          background_color,
+          is_public: is_public || false,
+        },
+      ])
+      .select()
+
+    if (error) {
+      console.error("Database error creating board:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    console.log("Board created successfully:", data)
+    return NextResponse.json({ data }, { status: 201 })
+  } catch (error: any) {
+    console.error("Error in POST /api/boards:", error)
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
-
-  return NextResponse.json({ data }, { status: 201 })
 }
