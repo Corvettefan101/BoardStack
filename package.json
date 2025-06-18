@@ -38,7 +38,6 @@
     "path": "latest",
     "react": "^19",
     "react-dom": "^19",
-    "sonner": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "use-sync-external-store": "latest",
