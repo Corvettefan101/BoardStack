@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/hooks/use-auth"
+import { useSupabase } from "@/components/supabase-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,13 +23,13 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const router = useRouter()
-  const { signup, loginWithGoogle, isAuthenticated, isLoaded } = useAuth()
+  const { user, signInWithGoogle, supabase, isLoading: authLoading } = useSupabase()
 
   useEffect(() => {
-    if (isLoaded && isAuthenticated) {
+    if (!authLoading && user) {
       router.push("/dashboard")
     }
-  }, [isAuthenticated, isLoaded, router])
+  }, [user, authLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,15 +55,25 @@ export default function SignupPage() {
     }
 
     try {
-      const success = await signup(name, email, password)
-      if (success) {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+            name: name,
+          },
+        },
+      })
+
+      if (signUpError) {
+        setError(signUpError.message)
+      } else if (data.user) {
         toast.success("Account created successfully!")
-        router.push("/dashboard")
-      } else {
-        setError("An account with this email already exists")
+        // The auth state change will handle the redirect
       }
-    } catch (err) {
-      setError("Failed to create account. Please try again.")
+    } catch (err: any) {
+      setError(err.message || "Failed to create account. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -72,15 +82,15 @@ export default function SignupPage() {
   const handleGoogleSignup = async () => {
     setIsGoogleLoading(true)
     try {
-      await loginWithGoogle()
-    } catch (err) {
-      toast.error("Failed to sign up with Google")
+      await signInWithGoogle()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to sign up with Google")
     } finally {
       setIsGoogleLoading(false)
     }
   }
 
-  if (!isLoaded) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
