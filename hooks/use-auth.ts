@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from "react"
 import { useSupabase } from "@/components/supabase-provider"
 import { useAuthStore } from "@/store/auth-store"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase-client"
 
 export function useAuth() {
   const { user, session, isLoading: isSupabaseLoading, signInWithGoogle, signOut } = useSupabase()
