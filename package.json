@@ -3,16 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "dev": "next dev",
     "lint": "next lint",
-    "supabase:login": "supabase login",
-    "supabase:init": "supabase init",
-    "supabase:link": "supabase link --project-ref gjtymdtezxtyvdkwqiau",
+    "setup": "npm run supabase:link && npm run supabase:db:push",
+    "start": "next start",
     "supabase:db:push": "supabase db push",
     "supabase:generate:types": "supabase gen types typescript --local > lib/database.types.ts",
-    "setup": "npm run supabase:link && npm run supabase:db:push"
+    "supabase:init": "supabase init",
+    "supabase:link": "supabase link --project-ref gjtymdtezxtyvdkwqiau",
+    "supabase:login": "supabase login"
   },
   "dependencies": {
     "@auth0/auth0-react": "latest",
@@ -38,6 +38,7 @@
     "path": "latest",
     "react": "^19",
     "react-dom": "^19",
+    "sonner": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "use-sync-external-store": "latest",
