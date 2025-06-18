@@ -202,6 +202,7 @@ export function useUserBoards() {
           .insert({
             title,
             user_id: userId,
+            is_archived: false,
           })
           .select()
           .single()
