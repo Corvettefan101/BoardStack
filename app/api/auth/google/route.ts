@@ -10,15 +10,17 @@ export async function GET(request: NextRequest) {
 
     console.log("Auth request origin:", request.nextUrl.origin)
 
-    // Use the existing callback handler that works with your setup
+    // Use the implicit flow (hash-based) instead of PKCE for now
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${request.nextUrl.origin}/auth/callback-handler`, // Match existing setup
+        redirectTo: `${request.nextUrl.origin}/auth/callback-handler`,
         queryParams: {
           access_type: "offline",
           prompt: "consent",
         },
+        // Force implicit flow to avoid PKCE issues
+        skipBrowserRedirect: false,
       },
     })
 

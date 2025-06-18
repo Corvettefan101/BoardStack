@@ -21,7 +21,6 @@ export default function AuthCallbackHandler() {
 
         const error = urlParams.get("error") || hashParams.get("error")
         const errorDescription = urlParams.get("error_description") || hashParams.get("error_description")
-        const code = urlParams.get("code")
 
         if (error) {
           console.error("❌ OAuth error:", error, errorDescription)
@@ -30,15 +29,42 @@ export default function AuthCallbackHandler() {
           return
         }
 
-        // Handle PKCE flow with code parameter
-        if (code) {
-          console.log("✅ Found authorization code, exchanging for session...")
+        // Handle hash-based auth (implicit flow)
+        const hash = window.location.hash
+        console.log("Hash:", hash || "<empty string>")
 
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        if (hash && (hash.includes("access_token") || hash.includes("code"))) {
+          console.log("✅ Found auth data in hash, processing session...")
 
-          if (exchangeError) {
-            console.error("❌ Error exchanging code for session:", exchangeError)
-            router.push(`/login?error=${encodeURIComponent(exchangeError.message)}`)
+          // Use getSessionFromUrl to handle the callback properly
+          const { data, error: sessionError } = await supabase.auth.getSession()
+
+          if (sessionError) {
+            console.error("❌ Error getting session:", sessionError)
+
+            // Try to handle the session from URL hash directly
+            try {
+              console.log("🔄 Attempting to set session from URL...")
+              const { data: urlData, error: urlError } = await supabase.auth.getSessionFromUrl()
+
+              if (urlError) {
+                console.error("❌ Error getting session from URL:", urlError)
+                router.push(`/login?error=${encodeURIComponent(urlError.message)}`)
+                return
+              }
+
+              if (urlData.session?.user) {
+                console.log("✅ Session established from URL for user:", urlData.session.user.email)
+                window.history.replaceState(null, "", window.location.pathname)
+                console.log("🚀 Redirecting to dashboard...")
+                router.push("/dashboard")
+                return
+              }
+            } catch (urlError: any) {
+              console.error("❌ Failed to get session from URL:", urlError)
+            }
+
+            router.push(`/login?error=${encodeURIComponent(sessionError.message)}`)
             return
           }
 
@@ -57,33 +83,6 @@ export default function AuthCallbackHandler() {
             window.history.replaceState(null, "", window.location.pathname)
 
             // Redirect to dashboard
-            console.log("🚀 Redirecting to dashboard...")
-            router.push("/dashboard")
-          } else {
-            console.error("❌ No session found after code exchange")
-            router.push("/login?error=Authentication failed")
-          }
-          return
-        }
-
-        // Fallback: Check for hash-based auth (legacy flow)
-        const hash = window.location.hash
-        console.log("Hash:", hash || "<empty string>")
-
-        if (hash && hash.includes("access_token")) {
-          console.log("✅ Found access token in URL hash, processing session...")
-
-          const { data, error: sessionError } = await supabase.auth.getSession()
-
-          if (sessionError) {
-            console.error("❌ Error getting session:", sessionError)
-            router.push(`/login?error=${encodeURIComponent(sessionError.message)}`)
-            return
-          }
-
-          if (data.session?.user) {
-            console.log("✅ Session established for user:", data.session.user.email)
-            window.history.replaceState(null, "", window.location.pathname)
             console.log("🚀 Redirecting to dashboard...")
             router.push("/dashboard")
           } else {
