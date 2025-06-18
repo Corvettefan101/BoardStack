@@ -39,59 +39,6 @@ Experience BoardStack directly in your browser:
 
 **UI Preview:**
 ![Screenshot 2025-05-28 091607](https://github.com/user-attachments/assets/3706d456-a81e-41cc-bb8d-53f59deea868)
-
-## Setup Instructions
-
-### Prerequisites
-- Node.js 18+ installed
-- Supabase account
-- Google OAuth credentials (for Google Sign-In)
-
-### Environment Setup
-1. Clone the repository
-2. Copy `.env.local.example` to `.env.local` and fill in your Supabase credentials:
-   \`\`\`
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-   SUPABASE_PROJECT_ID=your-project-id
-   SUPABASE_ACCESS_TOKEN=your-access-token
-   SUPABASE_AUTH_GOOGLE_CLIENT_ID=your-google-client-id
-   SUPABASE_AUTH_GOOGLE_SECRET=your-google-client-secret
-   \`\`\`
-
-### Install Dependencies
-\`\`\`bash
-npm install
-\`\`\`
-
-### Set Up Supabase CLI
-\`\`\`bash
-npm install -g supabase
-supabase login
-\`\`\`
-
-### Initialize Database
-\`\`\`bash
-npm run setup
-\`\`\`
-
-This will:
-1. Link to your Supabase project
-2. Push all migrations to create tables, functions, and policies
-3. Generate TypeScript types for your database schema
-
-### Run the Development Server
-\`\`\`bash
-npm run dev
-\`\`\`
-
-### Configure Google OAuth
-1. Go to your Supabase project dashboard
-2. Navigate to Authentication > Providers
-3. Enable Google provider and add your Google OAuth credentials
-4. Set the callback URL to `https://your-project-url.supabase.co/auth/v1/callback`
-
 ## Future Plans
 We're constantly working to improve BoardStack! Here are some features we plan to implement:
 *   **Real-time Collaboration:** Allow multiple users to work on the same board simultaneously.
