@@ -1,31 +1,44 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "./database.types"
 
-// Environment variables
+// Environment variables with detailed logging
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+console.log("=== SUPABASE CONFIGURATION DEBUG ===")
+console.log("Environment:", process.env.NODE_ENV)
+console.log("Supabase URL from env:", supabaseUrl)
+console.log("Has Anon Key:", !!supabaseAnonKey)
+console.log("Expected URL: https://oiqjcwyklhfndtgqxjda.supabase.co")
+console.log("URL Match:", supabaseUrl === "https://oiqjcwyklhfndtgqxjda.supabase.co")
+console.log("=====================================")
+
 // Validate environment variables
 if (!supabaseUrl) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable")
+  console.error("❌ Missing NEXT_PUBLIC_SUPABASE_URL environment variable")
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable")
 }
 
 if (!supabaseAnonKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable")
+  console.error("❌ Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable")
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable")
 }
 
-// Basic URL validation (less strict)
+// Check if we're still using the old URL
+if (supabaseUrl.includes("gjtymdtezxtyvdkwqiau")) {
+  console.error("❌ STILL USING OLD SUPABASE URL!")
+  console.error("Current URL:", supabaseUrl)
+  console.error("Expected URL: https://oiqjcwyklhfndtgqxjda.supabase.co")
+  throw new Error("Environment variables not updated - still using old Supabase URL")
+}
+
+// Basic URL validation
 if (!supabaseUrl.startsWith("http")) {
-  console.error("NEXT_PUBLIC_SUPABASE_URL must start with http:// or https://")
+  console.error("❌ NEXT_PUBLIC_SUPABASE_URL must start with http:// or https://")
   throw new Error("Invalid NEXT_PUBLIC_SUPABASE_URL format")
 }
 
-console.log("Supabase configuration:", {
-  url: supabaseUrl,
-  hasAnonKey: !!supabaseAnonKey,
-})
+console.log("✅ Supabase configuration validated successfully")
 
 // Global singleton instance
 let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null
@@ -34,6 +47,8 @@ let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null
 export const getSupabaseClient = () => {
   if (!supabaseInstance) {
     try {
+      console.log("🔄 Creating Supabase client with URL:", supabaseUrl)
+
       supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {
         auth: {
           persistSession: true,
@@ -42,9 +57,9 @@ export const getSupabaseClient = () => {
         },
       })
 
-      console.log("Supabase client created successfully")
+      console.log("✅ Supabase client created successfully")
     } catch (error) {
-      console.error("Failed to create Supabase client:", error)
+      console.error("❌ Failed to create Supabase client:", error)
       throw error
     }
   }
@@ -57,6 +72,8 @@ export const supabase = getSupabaseClient()
 // Server-side client factory (creates new instances for server use)
 export const createServerSupabaseClient = () => {
   try {
+    console.log("🔄 Creating server Supabase client with URL:", supabaseUrl)
+
     return createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: false,
@@ -65,7 +82,7 @@ export const createServerSupabaseClient = () => {
       },
     })
   } catch (error) {
-    console.error("Failed to create server Supabase client:", error)
+    console.error("❌ Failed to create server Supabase client:", error)
     throw error
   }
 }
@@ -78,6 +95,8 @@ export const createServerAdminClient = () => {
   }
 
   try {
+    console.log("🔄 Creating admin Supabase client with URL:", supabaseUrl)
+
     return createClient<Database>(supabaseUrl, serviceRoleKey, {
       auth: {
         persistSession: false,
@@ -86,7 +105,7 @@ export const createServerAdminClient = () => {
       },
     })
   } catch (error) {
-    console.error("Failed to create admin Supabase client:", error)
+    console.error("❌ Failed to create admin Supabase client:", error)
     throw error
   }
 }
