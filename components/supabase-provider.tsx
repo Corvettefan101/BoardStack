@@ -58,9 +58,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
       if (session?.user) {
         setUser(session.user)
+
+        // Only redirect on SIGNED_IN event, not INITIAL_SESSION
         if (event === "SIGNED_IN") {
           console.log("✅ User signed in, redirecting to dashboard")
-          router.push("/dashboard")
+          // Small delay to ensure state is updated
+          setTimeout(() => {
+            router.push("/dashboard")
+          }, 100)
         }
       } else {
         setUser(null)
