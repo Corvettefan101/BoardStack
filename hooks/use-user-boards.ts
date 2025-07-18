@@ -194,6 +194,15 @@ export function useUserBoards() {
     }
   }, [userId])
 
+  // Add a force update counter
+  const [updateCounter, setUpdateCounter] = useState(0)
+
+  // Add this function after fetchBoards
+  const forceUpdate = useCallback(() => {
+    setUpdateCounter((prev) => prev + 1)
+    fetchBoards()
+  }, [fetchBoards])
+
   // Set up real-time subscriptions
   useEffect(() => {
     if (!userId) return
@@ -214,7 +223,8 @@ export function useUserBoards() {
           },
           (payload) => {
             console.log("🔄 Board change detected:", payload)
-            fetchBoards()
+            // Force immediate refetch
+            setTimeout(() => fetchBoards(), 100)
           },
         )
         .subscribe()
@@ -231,7 +241,8 @@ export function useUserBoards() {
           },
           (payload) => {
             console.log("🔄 Column change detected:", payload)
-            fetchBoards()
+            // Force immediate refetch
+            setTimeout(() => fetchBoards(), 100)
           },
         )
         .subscribe()
@@ -248,7 +259,8 @@ export function useUserBoards() {
           },
           (payload) => {
             console.log("🔄 Card change detected:", payload)
-            fetchBoards()
+            // Force immediate refetch
+            setTimeout(() => fetchBoards(), 100)
           },
         )
         .subscribe()
@@ -991,6 +1003,8 @@ export function useUserBoards() {
     isLoaded,
     isLoading,
     error,
+    updateCounter, // Add this
+    forceUpdate, // Add this
     createBoard,
     updateBoard,
     deleteBoard,

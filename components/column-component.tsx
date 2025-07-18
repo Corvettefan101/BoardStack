@@ -19,39 +19,36 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
   const [newCardTitle, setNewCardTitle] = useState("")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState(column.title)
-  const [renderKey, setRenderKey] = useState(0)
+  const [localColumn, setLocalColumn] = useState(column)
   const { createCard, updateColumn, deleteColumn, moveCard } = useUserBoards()
 
-  // Update edit title when column title changes
+  // Update local column state when prop changes
   useEffect(() => {
+    console.log("ColumnComponent - Column prop changed:", column.id, column.cards?.length)
+    setLocalColumn(column)
     setEditTitle(column.title)
-  }, [column.title])
+  }, [column, column.cards, column.cards?.length, column.title])
 
-  // Force re-render when cards change
-  useEffect(() => {
-    setRenderKey((prev) => prev + 1)
-  }, [column.cards, column.cards?.length])
-
-  const handleAddCard = () => {
+  const handleAddCard = async () => {
     if (newCardTitle.trim()) {
-      createCard(column.id, newCardTitle.trim())
+      await createCard(column.id, newCardTitle.trim())
       setNewCardTitle("")
       setShowAddCard(false)
     }
   }
 
-  const handleUpdateTitle = () => {
+  const handleUpdateTitle = async () => {
     if (editTitle.trim()) {
-      updateColumn(column.id, { title: editTitle.trim() })
+      await updateColumn(column.id, { title: editTitle.trim() })
     }
     setIsEditingTitle(false)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     const cardId = e.dataTransfer.getData("text/plain")
     if (cardId) {
-      moveCard(cardId, column.id)
+      await moveCard(cardId, column.id)
     }
   }
 
@@ -61,7 +58,6 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
 
   return (
     <div
-      key={renderKey}
       className="flex-shrink-0 w-80 bg-gray-100 dark:bg-slate-800 rounded-lg p-4"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -81,7 +77,7 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
             className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
             onClick={() => setIsEditingTitle(true)}
           >
-            {column.title} ({column.cards?.length || 0})
+            {localColumn.title} ({localColumn.cards?.length || 0})
           </h3>
         )}
 
@@ -101,8 +97,8 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
       </div>
 
       <div className="space-y-3 mb-4">
-        {column.cards?.map((card) => (
-          <CardComponent key={`${card.id}-${card.title}-${card.columnId}-${renderKey}`} card={card} />
+        {localColumn.cards?.map((card) => (
+          <CardComponent key={card.id} card={card} />
         ))}
       </div>
 

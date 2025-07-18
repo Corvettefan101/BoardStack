@@ -16,17 +16,18 @@ interface BoardViewProps {
 export function BoardView({ board }: BoardViewProps) {
   const [showAddColumn, setShowAddColumn] = useState(false)
   const [newColumnTitle, setNewColumnTitle] = useState("")
-  const [renderKey, setRenderKey] = useState(0)
+  const [localBoard, setLocalBoard] = useState(board)
   const { createColumn } = useUserBoards()
 
-  // Force re-render when board data changes
+  // Update local board state when prop changes
   useEffect(() => {
-    setRenderKey((prev) => prev + 1)
-  }, [board.columns, board.columns?.map((c) => c.cards?.length).join(",")])
+    console.log("BoardView - Board prop changed:", board)
+    setLocalBoard(board)
+  }, [board, board.columns, board.columns?.length])
 
-  const handleAddColumn = () => {
+  const handleAddColumn = async () => {
     if (newColumnTitle.trim()) {
-      createColumn(board.id, newColumnTitle.trim())
+      await createColumn(board.id, newColumnTitle.trim())
       setNewColumnTitle("")
       setShowAddColumn(false)
     }
@@ -37,9 +38,9 @@ export function BoardView({ board }: BoardViewProps) {
   }
 
   return (
-    <div key={renderKey} className="flex space-x-6 overflow-x-auto pb-6" onDragOver={handleDragOver}>
-      {board.columns?.map((column) => (
-        <ColumnComponent key={`${column.id}-${column.cards?.length || 0}-${renderKey}`} column={column} />
+    <div className="flex space-x-6 overflow-x-auto pb-6" onDragOver={handleDragOver}>
+      {localBoard.columns?.map((column) => (
+        <ColumnComponent key={column.id} column={column} />
       ))}
 
       <div className="flex-shrink-0 w-80">
