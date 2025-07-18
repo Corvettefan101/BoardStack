@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { MoreHorizontal, Calendar, Plus } from "lucide-react"
@@ -10,15 +10,8 @@ import { useUserBoards } from "@/hooks/use-user-boards"
 import { CreateBoardDialog } from "./create-board-dialog"
 
 export function BoardGrid() {
-  const { boards, deleteBoard, forceRender } = useUserBoards()
+  const { boards, deleteBoard, updateCounter } = useUserBoards()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [localBoards, setLocalBoards] = useState(boards)
-
-  // Update local boards when boards change or forceRender changes
-  useEffect(() => {
-    console.log("BoardGrid - Boards updated:", boards.length, "forceRender:", forceRender)
-    setLocalBoards([...boards])
-  }, [boards, boards.length, forceRender])
 
   const handleDeleteBoard = async (boardId: string) => {
     if (confirm("Are you sure you want to delete this board? This action cannot be undone.")) {
@@ -26,15 +19,14 @@ export function BoardGrid() {
     }
   }
 
+  console.log("BoardGrid render - boards:", boards.length, "updateCounter:", updateCounter)
+
   return (
     <>
-      <div
-        key={`board-grid-${forceRender}`}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-      >
-        {localBoards.map((board) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {boards.map((board) => (
           <Card
-            key={`board-${board.id}-${board.columns?.length || 0}-${forceRender}`}
+            key={`${board.id}-${updateCounter}`}
             className="group hover:shadow-lg transition-all duration-200 border-0 shadow-md bg-white/80 dark:bg-slate-800/80 backdrop-blur"
           >
             <CardContent className="p-6">

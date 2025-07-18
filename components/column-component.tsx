@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type { Column } from "@/types"
 import { CardComponent } from "./card-component"
 import { Button } from "@/components/ui/button"
@@ -19,15 +19,7 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
   const [newCardTitle, setNewCardTitle] = useState("")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState(column.title)
-  const { createCard, updateColumn, deleteColumn, moveCard, forceRender } = useUserBoards()
-  const [localColumn, setLocalColumn] = useState(column)
-
-  // Update local column when column prop changes or forceRender changes
-  useEffect(() => {
-    console.log("ColumnComponent - Column updated:", column.id, column.cards?.length, "forceRender:", forceRender)
-    setLocalColumn({ ...column })
-    setEditTitle(column.title)
-  }, [column, column.cards, column.cards?.length, column.title, forceRender])
+  const { createCard, updateColumn, deleteColumn, moveCard, updateCounter } = useUserBoards()
 
   const handleAddCard = async () => {
     if (newCardTitle.trim()) {
@@ -58,9 +50,17 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
     e.preventDefault()
   }
 
+  console.log(
+    "ColumnComponent render - column:",
+    column.id,
+    "cards:",
+    column.cards?.length,
+    "updateCounter:",
+    updateCounter,
+  )
+
   return (
     <div
-      key={`column-${column.id}-${forceRender}`}
       className="flex-shrink-0 w-80 bg-gray-100 dark:bg-slate-800 rounded-lg p-4"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -90,7 +90,7 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
               setIsEditingTitle(true)
             }}
           >
-            {localColumn.title} ({localColumn.cards?.length || 0})
+            {column.title} ({column.cards?.length || 0})
           </h3>
         )}
 
@@ -117,8 +117,8 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
       </div>
 
       <div className="space-y-3 mb-4">
-        {localColumn.cards?.map((card) => (
-          <CardComponent key={`card-${card.id}-${card.title}-${forceRender}`} card={card} />
+        {column.cards?.map((card) => (
+          <CardComponent key={`${card.id}-${updateCounter}`} card={card} />
         ))}
       </div>
 

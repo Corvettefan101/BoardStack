@@ -15,7 +15,7 @@ export default function BoardPage() {
   const [isClient, setIsClient] = useState(false)
   const params = useParams()
   const boardId = params.id as string
-  const { boards, isLoaded, ensureUserBoards, forceRender } = useUserBoards()
+  const { boards, isLoaded, ensureUserBoards, updateCounter } = useUserBoards()
 
   useEffect(() => {
     setIsClient(true)
@@ -29,9 +29,14 @@ export default function BoardPage() {
 
   const board = boards.find((b) => b.id === boardId)
 
-  useEffect(() => {
-    console.log("BoardPage - Board state updated:", board?.id, board?.columns?.length, "forceRender:", forceRender)
-  }, [board, forceRender])
+  console.log(
+    "BoardPage render - board:",
+    board?.id,
+    "columns:",
+    board?.columns?.length,
+    "updateCounter:",
+    updateCounter,
+  )
 
   if (!isClient || !isLoaded) {
     return <LoadingScreen />
@@ -77,7 +82,7 @@ export default function BoardPage() {
               {board.title} ({board.columns?.length || 0} columns)
             </h1>
           </div>
-          <BoardView key={`board-view-${forceRender}`} board={board} />
+          <BoardView key={updateCounter} board={board} />
         </div>
       </div>
     </ProtectedRoute>
