@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import type { Board, Column, Card, Tag } from "@/types"
-import { supabase } from "@/lib/supabase-client" // Direct client import
-import type { PostgrestError } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase-client"
+import type { PostgrestError, RealtimeChannel } from "@supabase/supabase-js"
 
 export function useUserBoards() {
   const { currentUser } = useAuth()
@@ -25,7 +25,7 @@ export function useUserBoards() {
     try {
       setIsLoading(true)
       setError(null)
-      console.log("🔍 Fetching boards via API route...")
+      console.log("🔍 Fetching boards...")
 
       // Get boards where user is owner or member
       const { data: boardsData, error: boardsError } = await supabase
@@ -194,6 +194,77 @@ export function useUserBoards() {
     }
   }, [userId])
 
+  // Set up real-time subscriptions
+  useEffect(() => {
+    if (!userId) return
+
+    let channels: RealtimeChannel[] = []
+
+    const setupRealtimeSubscriptions = () => {
+      // Subscribe to boards changes
+      const boardsChannel = supabase
+        .channel("boards-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "boards",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            console.log("🔄 Board change detected:", payload)
+            fetchBoards()
+          },
+        )
+        .subscribe()
+
+      // Subscribe to columns changes
+      const columnsChannel = supabase
+        .channel("columns-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "columns",
+          },
+          (payload) => {
+            console.log("🔄 Column change detected:", payload)
+            fetchBoards()
+          },
+        )
+        .subscribe()
+
+      // Subscribe to cards changes
+      const cardsChannel = supabase
+        .channel("cards-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "cards",
+          },
+          (payload) => {
+            console.log("🔄 Card change detected:", payload)
+            fetchBoards()
+          },
+        )
+        .subscribe()
+
+      channels = [boardsChannel, columnsChannel, cardsChannel]
+    }
+
+    setupRealtimeSubscriptions()
+
+    return () => {
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel)
+      })
+    }
+  }, [userId, fetchBoards])
+
   // Initial fetch
   useEffect(() => {
     fetchBoards()
@@ -229,16 +300,24 @@ export function useUserBoards() {
         const { board } = await response.json()
         console.log("✅ Board created successfully via API route:", board)
 
-        // Refetch boards to get the new board with columns
-        await fetchBoards()
-        return board as Board
+        // Optimistically add the board to local state
+        const newBoard: Board = {
+          id: board.id,
+          title: board.title,
+          description: board.description || "",
+          createdAt: board.created_at,
+          columns: [],
+        }
+
+        setBoards((prev) => [newBoard, ...prev])
+        return newBoard
       } catch (err) {
         console.error("❌ Error creating board:", err)
         setError(err instanceof Error ? err.message : "Failed to create board")
         throw err
       }
     },
-    [userId, fetchBoards],
+    [userId],
   )
 
   const updateBoard = useCallback(
@@ -246,7 +325,10 @@ export function useUserBoards() {
       if (!userId) return undefined
 
       try {
-        console.log("🔍 Updating board via API route:", { id, updates })
+        console.log("🔍 Updating board:", { id, updates })
+
+        // Optimistically update local state
+        setBoards((prev) => prev.map((board) => (board.id === id ? { ...board, ...updates } : board)))
 
         const { data, error } = await supabase
           .from("boards")
@@ -260,19 +342,21 @@ export function useUserBoards() {
 
         if (error) {
           setError(error)
+          // Revert optimistic update on error
+          fetchBoards()
           return undefined
         }
 
-        // Update local state
-        setBoards((prev) => prev.map((board) => (board.id === id ? { ...board, ...data } : board)))
         console.log("✅ Board updated successfully:", data)
         return data as Board
       } catch (err) {
         console.error("❌ Error updating board:", err)
+        // Revert optimistic update on error
+        fetchBoards()
         throw err
       }
     },
-    [userId],
+    [userId, fetchBoards],
   )
 
   const deleteBoard = useCallback(
@@ -280,24 +364,29 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        console.log("🔍 Deleting board via API route:", id)
-        // Archive instead of delete
+        console.log("🔍 Deleting board:", id)
+
+        // Optimistically remove from local state
+        setBoards((prev) => prev.filter((board) => board.id !== id))
+
         const { error } = await supabase.from("boards").update({ is_archived: true }).eq("id", id)
 
         if (error) {
           setError(error)
+          // Revert optimistic update on error
+          fetchBoards()
           return
         }
 
-        // Update local state
-        setBoards((prev) => prev.filter((board) => board.id !== id))
         console.log("✅ Board deleted successfully")
       } catch (err) {
         console.error("❌ Error deleting board:", err)
+        // Revert optimistic update on error
+        fetchBoards()
         throw err
       }
     },
-    [userId],
+    [userId, fetchBoards],
   )
 
   // Column operations
@@ -316,6 +405,30 @@ export function useUserBoards() {
 
         const maxOrder = columnsData && columnsData.length > 0 ? columnsData[0].order : -1
 
+        // Optimistically add column to local state
+        const tempId = `temp-${Date.now()}`
+        const newColumn: Column = {
+          id: tempId,
+          title,
+          boardId,
+          cards: [],
+          color: null,
+          isCollapsed: false,
+          cardLimit: null,
+        }
+
+        setBoards((prev) =>
+          prev.map((board) => {
+            if (board.id === boardId) {
+              return {
+                ...board,
+                columns: [...board.columns, newColumn],
+              }
+            }
+            return board
+          }),
+        )
+
         const { data, error } = await supabase
           .from("columns")
           .insert({
@@ -328,27 +441,40 @@ export function useUserBoards() {
 
         if (error) {
           setError(error)
+          // Revert optimistic update on error
+          setBoards((prev) =>
+            prev.map((board) => {
+              if (board.id === boardId) {
+                return {
+                  ...board,
+                  columns: board.columns.filter((col) => col.id !== tempId),
+                }
+              }
+              return board
+            }),
+          )
           return
         }
 
-        // Update local state
+        // Replace temp column with real data
         setBoards((prev) =>
           prev.map((board) => {
             if (board.id === boardId) {
               return {
                 ...board,
-                columns: [
-                  ...board.columns,
-                  {
-                    id: data.id,
-                    title: data.title,
-                    boardId,
-                    cards: [],
-                    color: data.color,
-                    isCollapsed: data.is_collapsed || false,
-                    cardLimit: data.card_limit,
-                  },
-                ],
+                columns: board.columns.map((col) =>
+                  col.id === tempId
+                    ? {
+                        id: data.id,
+                        title: data.title,
+                        boardId,
+                        cards: [],
+                        color: data.color,
+                        isCollapsed: data.is_collapsed || false,
+                        cardLimit: data.card_limit,
+                      }
+                    : col,
+                ),
               }
             }
             return board
@@ -366,22 +492,7 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        const { error } = await supabase
-          .from("columns")
-          .update({
-            title: updates.title,
-            color: updates.color,
-            is_collapsed: updates.isCollapsed,
-            card_limit: updates.cardLimit,
-          })
-          .eq("id", columnId)
-
-        if (error) {
-          setError(error)
-          return
-        }
-
-        // Update local state
+        // Optimistically update local state
         setBoards((prev) =>
           prev.map((board) => {
             const columnIndex = board.columns.findIndex((col) => col.id === columnId)
@@ -396,11 +507,30 @@ export function useUserBoards() {
             return board
           }),
         )
+
+        const { error } = await supabase
+          .from("columns")
+          .update({
+            title: updates.title,
+            color: updates.color,
+            is_collapsed: updates.isCollapsed,
+            card_limit: updates.cardLimit,
+          })
+          .eq("id", columnId)
+
+        if (error) {
+          setError(error)
+          // Revert optimistic update on error
+          fetchBoards()
+          return
+        }
       } catch (err) {
         console.error("Error updating column:", err)
+        // Revert optimistic update on error
+        fetchBoards()
       }
     },
-    [userId],
+    [userId, fetchBoards],
   )
 
   const deleteColumn = useCallback(
@@ -408,14 +538,7 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        const { error } = await supabase.from("columns").delete().eq("id", columnId)
-
-        if (error) {
-          setError(error)
-          return
-        }
-
-        // Update local state
+        // Optimistically remove from local state
         setBoards((prev) =>
           prev.map((board) => {
             const columnIndex = board.columns.findIndex((col) => col.id === columnId)
@@ -426,11 +549,22 @@ export function useUserBoards() {
             return board
           }),
         )
+
+        const { error } = await supabase.from("columns").delete().eq("id", columnId)
+
+        if (error) {
+          setError(error)
+          // Revert optimistic update on error
+          fetchBoards()
+          return
+        }
       } catch (err) {
         console.error("Error deleting column:", err)
+        // Revert optimistic update on error
+        fetchBoards()
       }
     },
-    [userId],
+    [userId, fetchBoards],
   )
 
   // Card operations
@@ -449,6 +583,28 @@ export function useUserBoards() {
 
         const maxOrder = cardsData && cardsData.length > 0 ? cardsData[0].order : -1
 
+        // Optimistically add card to local state
+        const tempId = `temp-${Date.now()}`
+        const newCard: Card = {
+          id: tempId,
+          title,
+          description: "",
+          columnId,
+          tags: [],
+        }
+
+        setBoards((prev) =>
+          prev.map((board) => {
+            const columnIndex = board.columns.findIndex((col) => col.id === columnId)
+            if (columnIndex !== -1) {
+              const updatedColumns = [...board.columns]
+              updatedColumns[columnIndex].cards.push(newCard)
+              return { ...board, columns: updatedColumns }
+            }
+            return board
+          }),
+        )
+
         const { data, error } = await supabase
           .from("cards")
           .insert({
@@ -461,22 +617,40 @@ export function useUserBoards() {
 
         if (error) {
           setError(error)
+          // Revert optimistic update on error
+          setBoards((prev) =>
+            prev.map((board) => {
+              const columnIndex = board.columns.findIndex((col) => col.id === columnId)
+              if (columnIndex !== -1) {
+                const updatedColumns = [...board.columns]
+                updatedColumns[columnIndex].cards = updatedColumns[columnIndex].cards.filter(
+                  (card) => card.id !== tempId,
+                )
+                return { ...board, columns: updatedColumns }
+              }
+              return board
+            }),
+          )
           return
         }
 
-        // Update local state
+        // Replace temp card with real data
         setBoards((prev) =>
           prev.map((board) => {
             const columnIndex = board.columns.findIndex((col) => col.id === columnId)
             if (columnIndex !== -1) {
               const updatedColumns = [...board.columns]
-              updatedColumns[columnIndex].cards.push({
-                id: data.id,
-                title: data.title,
-                description: data.description || "",
-                columnId,
-                tags: [],
-              })
+              updatedColumns[columnIndex].cards = updatedColumns[columnIndex].cards.map((card) =>
+                card.id === tempId
+                  ? {
+                      id: data.id,
+                      title: data.title,
+                      description: data.description || "",
+                      columnId,
+                      tags: [],
+                    }
+                  : card,
+              )
               return { ...board, columns: updatedColumns }
             }
             return board
@@ -494,26 +668,7 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        const { error } = await supabase
-          .from("cards")
-          .update({
-            title: updates.title,
-            description: updates.description,
-            due_date: updates.dueDate,
-            assigned_user_id: updates.assignedUser?.id,
-            priority: updates.priority,
-            estimated_hours: updates.estimatedHours,
-            actual_hours: updates.actualHours,
-            is_completed: updates.isCompleted,
-          })
-          .eq("id", cardId)
-
-        if (error) {
-          setError(error)
-          return
-        }
-
-        // Update local state
+        // Optimistically update local state
         setBoards((prev) =>
           prev.map((board) => {
             const updatedBoard = { ...board }
@@ -532,11 +687,34 @@ export function useUserBoards() {
             return updatedBoard
           }),
         )
+
+        const { error } = await supabase
+          .from("cards")
+          .update({
+            title: updates.title,
+            description: updates.description,
+            due_date: updates.dueDate,
+            assigned_user_id: updates.assignedUser?.id,
+            priority: updates.priority,
+            estimated_hours: updates.estimatedHours,
+            actual_hours: updates.actualHours,
+            is_completed: updates.isCompleted,
+          })
+          .eq("id", cardId)
+
+        if (error) {
+          setError(error)
+          // Revert optimistic update on error
+          fetchBoards()
+          return
+        }
       } catch (err) {
         console.error("Error updating card:", err)
+        // Revert optimistic update on error
+        fetchBoards()
       }
     },
-    [userId],
+    [userId, fetchBoards],
   )
 
   const deleteCard = useCallback(
@@ -544,14 +722,7 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        const { error } = await supabase.from("cards").delete().eq("id", cardId)
-
-        if (error) {
-          setError(error)
-          return
-        }
-
-        // Update local state
+        // Optimistically remove from local state
         setBoards((prev) =>
           prev.map((board) => {
             const updatedBoard = { ...board }
@@ -567,11 +738,22 @@ export function useUserBoards() {
             return updatedBoard
           }),
         )
+
+        const { error } = await supabase.from("cards").delete().eq("id", cardId)
+
+        if (error) {
+          setError(error)
+          // Revert optimistic update on error
+          fetchBoards()
+          return
+        }
       } catch (err) {
         console.error("Error deleting card:", err)
+        // Revert optimistic update on error
+        fetchBoards()
       }
     },
-    [userId],
+    [userId, fetchBoards],
   )
 
   const moveCard = useCallback(
@@ -579,39 +761,7 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        // Get the card to move
-        const { data: cardData, error: cardError } = await supabase.from("cards").select("*").eq("id", cardId).single()
-
-        if (cardError) {
-          setError(cardError)
-          return
-        }
-
-        // Get max order in the new column
-        const { data: cardsData } = await supabase
-          .from("cards")
-          .select("order")
-          .eq("column_id", newColumnId)
-          .order("order", { ascending: false })
-          .limit(1)
-
-        const maxOrder = cardsData && cardsData.length > 0 ? cardsData[0].order : -1
-
-        // Update the card
-        const { error } = await supabase
-          .from("cards")
-          .update({
-            column_id: newColumnId,
-            order: maxOrder + 1,
-          })
-          .eq("id", cardId)
-
-        if (error) {
-          setError(error)
-          return
-        }
-
-        // Update local state
+        // Optimistically update local state first
         setBoards((prev) => {
           return prev.map((board) => {
             const updatedBoard = { ...board }
@@ -641,11 +791,39 @@ export function useUserBoards() {
             return updatedBoard
           })
         })
+
+        // Get max order in the new column
+        const { data: cardsData } = await supabase
+          .from("cards")
+          .select("order")
+          .eq("column_id", newColumnId)
+          .order("order", { ascending: false })
+          .limit(1)
+
+        const maxOrder = cardsData && cardsData.length > 0 ? cardsData[0].order : -1
+
+        // Update the card in database
+        const { error } = await supabase
+          .from("cards")
+          .update({
+            column_id: newColumnId,
+            order: maxOrder + 1,
+          })
+          .eq("id", cardId)
+
+        if (error) {
+          setError(error)
+          // Revert optimistic update on error
+          fetchBoards()
+          return
+        }
       } catch (err) {
         console.error("Error moving card:", err)
+        // Revert optimistic update on error
+        fetchBoards()
       }
     },
-    [userId],
+    [userId, fetchBoards],
   )
 
   // Data management
