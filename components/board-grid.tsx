@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { MoreHorizontal, Calendar, Plus } from "lucide-react"
@@ -7,13 +8,16 @@ import Link from "next/link"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useUserBoards } from "@/hooks/use-user-boards"
 import { CreateBoardDialog } from "./create-board-dialog"
-import { useState } from "react"
 
 export function BoardGrid() {
   const { boards, deleteBoard } = useUserBoards()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
 
-  console.log("BoardGrid - Rendering with boards:", boards.length)
+  const handleDeleteBoard = async (boardId: string) => {
+    if (confirm("Are you sure you want to delete this board? This action cannot be undone.")) {
+      await deleteBoard(boardId)
+    }
+  }
 
   return (
     <>
@@ -41,12 +45,16 @@ export function BoardGrid() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => deleteBoard(board.id)} className="text-red-600">
+                    <DropdownMenuItem onClick={() => handleDeleteBoard(board.id)} className="text-red-600">
                       Delete Board
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+
+              {board.description && (
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">{board.description}</p>
+              )}
 
               <div className="space-y-3">
                 <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
@@ -55,9 +63,9 @@ export function BoardGrid() {
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">{board.columns.length} columns</span>
+                  <span className="text-gray-600 dark:text-gray-400">{board.columns?.length || 0} columns</span>
                   <span className="text-gray-600 dark:text-gray-400">
-                    {board.columns.reduce((total, col) => total + col.cards.length, 0)} cards
+                    {board.columns?.reduce((total, col) => total + (col.cards?.length || 0), 0) || 0} cards
                   </span>
                 </div>
               </div>

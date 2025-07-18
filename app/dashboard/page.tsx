@@ -21,10 +21,6 @@ export default function Dashboard() {
     }
   }, [isClient, isLoaded, ensureUserBoards])
 
-  useEffect(() => {
-    console.log("Dashboard - Boards updated:", boards.length, boards)
-  }, [boards])
-
   if (!isClient || !isLoaded) {
     return <LoadingScreen />
   }
@@ -36,7 +32,9 @@ export default function Dashboard() {
         <main className="container mx-auto px-4 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Your Boards</h1>
-            <p className="text-gray-600 dark:text-gray-400">Organize your projects and boost productivity</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Organize your projects and boost productivity ({boards.length} boards)
+            </p>
           </div>
           <BoardGrid />
         </main>

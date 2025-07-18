@@ -19,15 +19,17 @@ export function useUserBoards() {
   const fetchBoards = useCallback(async () => {
     if (!userId) {
       setBoards([])
+      setIsLoaded(true)
+      setIsLoading(false)
       return
     }
 
     try {
       setIsLoading(true)
       setError(null)
-      console.log("🔍 Fetching boards...")
+      console.log("🔍 Fetching boards for user:", userId)
 
-      // Get boards where user is owner or member
+      // Get boards where user is owner
       const { data: boardsData, error: boardsError } = await supabase
         .from("boards")
         .select("*")
@@ -36,45 +38,16 @@ export function useUserBoards() {
         .order("created_at", { ascending: false })
 
       if (boardsError) {
+        console.error("❌ Error fetching boards:", boardsError)
         setError(boardsError)
         return
       }
 
-      // Get shared boards
-      const { data: memberBoards, error: memberBoardsError } = await supabase
-        .from("board_members")
-        .select("board_id")
-        .eq("user_id", userId)
-        .eq("is_active", true)
-
-      if (memberBoardsError) {
-        setError(memberBoardsError)
-        return
-      }
-
-      const memberBoardIds = memberBoards?.map((mb) => mb.board_id) || []
-
-      let sharedBoardsData: any[] = []
-      if (memberBoardIds.length > 0) {
-        const { data: sharedBoards, error: sharedBoardsError } = await supabase
-          .from("boards")
-          .select("*")
-          .in("id", memberBoardIds)
-          .eq("is_archived", false)
-          .order("created_at", { ascending: false })
-
-        if (sharedBoardsError) {
-          setError(sharedBoardsError)
-        } else {
-          sharedBoardsData = sharedBoards || []
-        }
-      }
-
-      const allBoardsData = [...(boardsData || []), ...sharedBoardsData]
+      console.log("📋 Found boards:", boardsData?.length || 0)
 
       // For each board, get columns and cards
       const boardsWithDetails = await Promise.all(
-        allBoardsData.map(async (board) => {
+        (boardsData || []).map(async (board) => {
           // Get columns
           const { data: columnsData, error: columnsError } = await supabase
             .from("columns")
@@ -83,6 +56,7 @@ export function useUserBoards() {
             .order("order", { ascending: true })
 
           if (columnsError) {
+            console.error("❌ Error fetching columns:", columnsError)
             setError(columnsError)
             return null
           }
@@ -97,6 +71,7 @@ export function useUserBoards() {
                 .order("order", { ascending: true })
 
               if (cardsError) {
+                console.error("❌ Error fetching cards:", cardsError)
                 setError(cardsError)
                 return null
               }
@@ -110,7 +85,7 @@ export function useUserBoards() {
                     .eq("card_id", card.id)
 
                   if (cardTagsError) {
-                    setError(cardTagsError)
+                    console.error("❌ Error fetching card tags:", cardTagsError)
                     return null
                   }
 
@@ -139,7 +114,7 @@ export function useUserBoards() {
                       assignedUser = {
                         id: userData.id,
                         name: userData.name,
-                        email: "", // Email is not stored in profiles for privacy
+                        email: "",
                         avatar: userData.avatar_url,
                       }
                     }
@@ -183,25 +158,18 @@ export function useUserBoards() {
         }),
       )
 
-      setBoards(boardsWithDetails.filter(Boolean) as Board[])
-      console.log("✅ Boards fetched successfully:", allBoardsData?.length || 0)
+      const finalBoards = boardsWithDetails.filter(Boolean) as Board[]
+      console.log("✅ Boards with details:", finalBoards.length, finalBoards)
+
+      setBoards(finalBoards)
     } catch (err) {
-      console.error("❌ Error fetching boards:", err)
+      console.error("❌ Error in fetchBoards:", err)
       setError(err instanceof Error ? err.message : "Failed to fetch boards")
     } finally {
       setIsLoading(false)
       setIsLoaded(true)
     }
   }, [userId])
-
-  // Add a force update counter
-  const [updateCounter, setUpdateCounter] = useState(0)
-
-  // Add this function after fetchBoards
-  const forceUpdate = useCallback(() => {
-    setUpdateCounter((prev) => prev + 1)
-    fetchBoards()
-  }, [fetchBoards])
 
   // Set up real-time subscriptions
   useEffect(() => {
@@ -210,20 +178,20 @@ export function useUserBoards() {
     let channels: RealtimeChannel[] = []
 
     const setupRealtimeSubscriptions = () => {
+      console.log("🔄 Setting up real-time subscriptions for user:", userId)
+
       // Subscribe to boards changes
       const boardsChannel = supabase
-        .channel("boards-changes")
+        .channel(`boards-${userId}`)
         .on(
           "postgres_changes",
           {
             event: "*",
             schema: "public",
             table: "boards",
-            filter: `user_id=eq.${userId}`,
           },
           (payload) => {
             console.log("🔄 Board change detected:", payload)
-            // Force immediate refetch
             setTimeout(() => fetchBoards(), 100)
           },
         )
@@ -231,7 +199,7 @@ export function useUserBoards() {
 
       // Subscribe to columns changes
       const columnsChannel = supabase
-        .channel("columns-changes")
+        .channel(`columns-${userId}`)
         .on(
           "postgres_changes",
           {
@@ -241,7 +209,6 @@ export function useUserBoards() {
           },
           (payload) => {
             console.log("🔄 Column change detected:", payload)
-            // Force immediate refetch
             setTimeout(() => fetchBoards(), 100)
           },
         )
@@ -249,7 +216,7 @@ export function useUserBoards() {
 
       // Subscribe to cards changes
       const cardsChannel = supabase
-        .channel("cards-changes")
+        .channel(`cards-${userId}`)
         .on(
           "postgres_changes",
           {
@@ -259,7 +226,6 @@ export function useUserBoards() {
           },
           (payload) => {
             console.log("🔄 Card change detected:", payload)
-            // Force immediate refetch
             setTimeout(() => fetchBoards(), 100)
           },
         )
@@ -271,6 +237,7 @@ export function useUserBoards() {
     setupRealtimeSubscriptions()
 
     return () => {
+      console.log("🧹 Cleaning up real-time subscriptions")
       channels.forEach((channel) => {
         supabase.removeChannel(channel)
       })
@@ -279,8 +246,10 @@ export function useUserBoards() {
 
   // Initial fetch
   useEffect(() => {
-    fetchBoards()
-  }, [fetchBoards])
+    if (userId) {
+      fetchBoards()
+    }
+  }, [userId, fetchBoards])
 
   // Board operations
   const createBoard = useCallback(
@@ -288,9 +257,20 @@ export function useUserBoards() {
       if (!userId) return undefined
 
       try {
-        console.log("🔍 Creating board via API route:", { title, description })
+        console.log("🔍 Creating board:", { title, description })
 
-        // Use the API route instead of direct Supabase call
+        // Optimistic update - add board immediately
+        const tempId = `temp-${Date.now()}`
+        const optimisticBoard: Board = {
+          id: tempId,
+          title,
+          description: description || "",
+          createdAt: new Date().toISOString(),
+          columns: [],
+        }
+
+        setBoards((prev) => [optimisticBoard, ...prev])
+
         const response = await fetch("/api/boards", {
           method: "POST",
           headers: {
@@ -305,24 +285,31 @@ export function useUserBoards() {
         if (!response.ok) {
           const errorData = await response.json()
           console.error("❌ API route error:", errorData)
+          // Revert optimistic update
+          setBoards((prev) => prev.filter((board) => board.id !== tempId))
           setError(errorData.error || "Failed to create board")
           return undefined
         }
 
         const { board } = await response.json()
-        console.log("✅ Board created successfully via API route:", board)
+        console.log("✅ Board created successfully:", board)
 
-        // Optimistically add the board to local state
-        const newBoard: Board = {
-          id: board.id,
-          title: board.title,
-          description: board.description || "",
-          createdAt: board.created_at,
-          columns: [],
-        }
+        // Replace optimistic board with real board
+        setBoards((prev) =>
+          prev.map((b) =>
+            b.id === tempId
+              ? {
+                  id: board.id,
+                  title: board.title,
+                  description: board.description || "",
+                  createdAt: board.created_at,
+                  columns: [],
+                }
+              : b,
+          ),
+        )
 
-        setBoards((prev) => [newBoard, ...prev])
-        return newBoard
+        return board as Board
       } catch (err) {
         console.error("❌ Error creating board:", err)
         setError(err instanceof Error ? err.message : "Failed to create board")
@@ -339,7 +326,7 @@ export function useUserBoards() {
       try {
         console.log("🔍 Updating board:", { id, updates })
 
-        // Optimistically update local state
+        // Optimistic update
         setBoards((prev) => prev.map((board) => (board.id === id ? { ...board, ...updates } : board)))
 
         const { data, error } = await supabase
@@ -353,8 +340,9 @@ export function useUserBoards() {
           .single()
 
         if (error) {
+          console.error("❌ Error updating board:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           fetchBoards()
           return undefined
         }
@@ -363,7 +351,7 @@ export function useUserBoards() {
         return data as Board
       } catch (err) {
         console.error("❌ Error updating board:", err)
-        // Revert optimistic update on error
+        // Revert optimistic update
         fetchBoards()
         throw err
       }
@@ -378,14 +366,15 @@ export function useUserBoards() {
       try {
         console.log("🔍 Deleting board:", id)
 
-        // Optimistically remove from local state
+        // Optimistic update - remove board immediately
         setBoards((prev) => prev.filter((board) => board.id !== id))
 
         const { error } = await supabase.from("boards").update({ is_archived: true }).eq("id", id)
 
         if (error) {
+          console.error("❌ Error deleting board:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           fetchBoards()
           return
         }
@@ -393,7 +382,7 @@ export function useUserBoards() {
         console.log("✅ Board deleted successfully")
       } catch (err) {
         console.error("❌ Error deleting board:", err)
-        // Revert optimistic update on error
+        // Revert optimistic update
         fetchBoards()
         throw err
       }
@@ -407,19 +396,11 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        // Get max order
-        const { data: columnsData } = await supabase
-          .from("columns")
-          .select("order")
-          .eq("board_id", boardId)
-          .order("order", { ascending: false })
-          .limit(1)
+        console.log("🔍 Creating column:", { boardId, title })
 
-        const maxOrder = columnsData && columnsData.length > 0 ? columnsData[0].order : -1
-
-        // Optimistically add column to local state
+        // Optimistic update - add column immediately
         const tempId = `temp-${Date.now()}`
-        const newColumn: Column = {
+        const optimisticColumn: Column = {
           id: tempId,
           title,
           boardId,
@@ -434,12 +415,22 @@ export function useUserBoards() {
             if (board.id === boardId) {
               return {
                 ...board,
-                columns: [...board.columns, newColumn],
+                columns: [...board.columns, optimisticColumn],
               }
             }
             return board
           }),
         )
+
+        // Get max order
+        const { data: columnsData } = await supabase
+          .from("columns")
+          .select("order")
+          .eq("board_id", boardId)
+          .order("order", { ascending: false })
+          .limit(1)
+
+        const maxOrder = columnsData && columnsData.length > 0 ? columnsData[0].order : -1
 
         const { data, error } = await supabase
           .from("columns")
@@ -452,8 +443,9 @@ export function useUserBoards() {
           .single()
 
         if (error) {
+          console.error("❌ Error creating column:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           setBoards((prev) =>
             prev.map((board) => {
               if (board.id === boardId) {
@@ -468,7 +460,9 @@ export function useUserBoards() {
           return
         }
 
-        // Replace temp column with real data
+        console.log("✅ Column created successfully:", data)
+
+        // Replace optimistic column with real column
         setBoards((prev) =>
           prev.map((board) => {
             if (board.id === boardId) {
@@ -493,7 +487,7 @@ export function useUserBoards() {
           }),
         )
       } catch (err) {
-        console.error("Error creating column:", err)
+        console.error("❌ Error creating column:", err)
       }
     },
     [userId],
@@ -504,7 +498,9 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        // Optimistically update local state
+        console.log("🔍 Updating column:", { columnId, updates })
+
+        // Optimistic update
         setBoards((prev) =>
           prev.map((board) => {
             const columnIndex = board.columns.findIndex((col) => col.id === columnId)
@@ -531,14 +527,17 @@ export function useUserBoards() {
           .eq("id", columnId)
 
         if (error) {
+          console.error("❌ Error updating column:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           fetchBoards()
           return
         }
+
+        console.log("✅ Column updated successfully")
       } catch (err) {
-        console.error("Error updating column:", err)
-        // Revert optimistic update on error
+        console.error("❌ Error updating column:", err)
+        // Revert optimistic update
         fetchBoards()
       }
     },
@@ -550,7 +549,9 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        // Optimistically remove from local state
+        console.log("🔍 Deleting column:", columnId)
+
+        // Optimistic update - remove column immediately
         setBoards((prev) =>
           prev.map((board) => {
             const columnIndex = board.columns.findIndex((col) => col.id === columnId)
@@ -565,14 +566,17 @@ export function useUserBoards() {
         const { error } = await supabase.from("columns").delete().eq("id", columnId)
 
         if (error) {
+          console.error("❌ Error deleting column:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           fetchBoards()
           return
         }
+
+        console.log("✅ Column deleted successfully")
       } catch (err) {
-        console.error("Error deleting column:", err)
-        // Revert optimistic update on error
+        console.error("❌ Error deleting column:", err)
+        // Revert optimistic update
         fetchBoards()
       }
     },
@@ -585,19 +589,11 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        // Get max order
-        const { data: cardsData } = await supabase
-          .from("cards")
-          .select("order")
-          .eq("column_id", columnId)
-          .order("order", { ascending: false })
-          .limit(1)
+        console.log("🔍 Creating card:", { columnId, title })
 
-        const maxOrder = cardsData && cardsData.length > 0 ? cardsData[0].order : -1
-
-        // Optimistically add card to local state
+        // Optimistic update - add card immediately
         const tempId = `temp-${Date.now()}`
-        const newCard: Card = {
+        const optimisticCard: Card = {
           id: tempId,
           title,
           description: "",
@@ -610,12 +606,25 @@ export function useUserBoards() {
             const columnIndex = board.columns.findIndex((col) => col.id === columnId)
             if (columnIndex !== -1) {
               const updatedColumns = [...board.columns]
-              updatedColumns[columnIndex].cards.push(newCard)
+              updatedColumns[columnIndex] = {
+                ...updatedColumns[columnIndex],
+                cards: [...updatedColumns[columnIndex].cards, optimisticCard],
+              }
               return { ...board, columns: updatedColumns }
             }
             return board
           }),
         )
+
+        // Get max order
+        const { data: cardsData } = await supabase
+          .from("cards")
+          .select("order")
+          .eq("column_id", columnId)
+          .order("order", { ascending: false })
+          .limit(1)
+
+        const maxOrder = cardsData && cardsData.length > 0 ? cardsData[0].order : -1
 
         const { data, error } = await supabase
           .from("cards")
@@ -628,16 +637,18 @@ export function useUserBoards() {
           .single()
 
         if (error) {
+          console.error("❌ Error creating card:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           setBoards((prev) =>
             prev.map((board) => {
               const columnIndex = board.columns.findIndex((col) => col.id === columnId)
               if (columnIndex !== -1) {
                 const updatedColumns = [...board.columns]
-                updatedColumns[columnIndex].cards = updatedColumns[columnIndex].cards.filter(
-                  (card) => card.id !== tempId,
-                )
+                updatedColumns[columnIndex] = {
+                  ...updatedColumns[columnIndex],
+                  cards: updatedColumns[columnIndex].cards.filter((card) => card.id !== tempId),
+                }
                 return { ...board, columns: updatedColumns }
               }
               return board
@@ -646,30 +657,35 @@ export function useUserBoards() {
           return
         }
 
-        // Replace temp card with real data
+        console.log("✅ Card created successfully:", data)
+
+        // Replace optimistic card with real card
         setBoards((prev) =>
           prev.map((board) => {
             const columnIndex = board.columns.findIndex((col) => col.id === columnId)
             if (columnIndex !== -1) {
               const updatedColumns = [...board.columns]
-              updatedColumns[columnIndex].cards = updatedColumns[columnIndex].cards.map((card) =>
-                card.id === tempId
-                  ? {
-                      id: data.id,
-                      title: data.title,
-                      description: data.description || "",
-                      columnId,
-                      tags: [],
-                    }
-                  : card,
-              )
+              updatedColumns[columnIndex] = {
+                ...updatedColumns[columnIndex],
+                cards: updatedColumns[columnIndex].cards.map((card) =>
+                  card.id === tempId
+                    ? {
+                        id: data.id,
+                        title: data.title,
+                        description: data.description || "",
+                        columnId,
+                        tags: [],
+                      }
+                    : card,
+                ),
+              }
               return { ...board, columns: updatedColumns }
             }
             return board
           }),
         )
       } catch (err) {
-        console.error("Error creating card:", err)
+        console.error("❌ Error creating card:", err)
       }
     },
     [userId],
@@ -680,7 +696,9 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        // Optimistically update local state
+        console.log("🔍 Updating card:", { cardId, updates })
+
+        // Optimistic update
         setBoards((prev) =>
           prev.map((board) => {
             const updatedBoard = { ...board }
@@ -688,9 +706,11 @@ export function useUserBoards() {
             for (let i = 0; i < updatedBoard.columns.length; i++) {
               const cardIndex = updatedBoard.columns[i].cards.findIndex((card) => card.id === cardId)
               if (cardIndex !== -1) {
-                updatedBoard.columns[i].cards[cardIndex] = {
-                  ...updatedBoard.columns[i].cards[cardIndex],
-                  ...updates,
+                updatedBoard.columns[i] = {
+                  ...updatedBoard.columns[i],
+                  cards: updatedBoard.columns[i].cards.map((card, idx) =>
+                    idx === cardIndex ? { ...card, ...updates } : card,
+                  ),
                 }
                 break
               }
@@ -715,14 +735,17 @@ export function useUserBoards() {
           .eq("id", cardId)
 
         if (error) {
+          console.error("❌ Error updating card:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           fetchBoards()
           return
         }
+
+        console.log("✅ Card updated successfully")
       } catch (err) {
-        console.error("Error updating card:", err)
-        // Revert optimistic update on error
+        console.error("❌ Error updating card:", err)
+        // Revert optimistic update
         fetchBoards()
       }
     },
@@ -734,7 +757,9 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        // Optimistically remove from local state
+        console.log("🔍 Deleting card:", cardId)
+
+        // Optimistic update - remove card immediately
         setBoards((prev) =>
           prev.map((board) => {
             const updatedBoard = { ...board }
@@ -742,7 +767,10 @@ export function useUserBoards() {
             for (let i = 0; i < updatedBoard.columns.length; i++) {
               const cardIndex = updatedBoard.columns[i].cards.findIndex((card) => card.id === cardId)
               if (cardIndex !== -1) {
-                updatedBoard.columns[i].cards = updatedBoard.columns[i].cards.filter((card) => card.id !== cardId)
+                updatedBoard.columns[i] = {
+                  ...updatedBoard.columns[i],
+                  cards: updatedBoard.columns[i].cards.filter((card) => card.id !== cardId),
+                }
                 break
               }
             }
@@ -754,14 +782,17 @@ export function useUserBoards() {
         const { error } = await supabase.from("cards").delete().eq("id", cardId)
 
         if (error) {
+          console.error("❌ Error deleting card:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           fetchBoards()
           return
         }
+
+        console.log("✅ Card deleted successfully")
       } catch (err) {
-        console.error("Error deleting card:", err)
-        // Revert optimistic update on error
+        console.error("❌ Error deleting card:", err)
+        // Revert optimistic update
         fetchBoards()
       }
     },
@@ -773,7 +804,9 @@ export function useUserBoards() {
       if (!userId) return
 
       try {
-        // Optimistically update local state first
+        console.log("🔍 Moving card:", { cardId, newColumnId })
+
+        // Optimistic update - move card immediately
         setBoards((prev) => {
           return prev.map((board) => {
             const updatedBoard = { ...board }
@@ -784,7 +817,10 @@ export function useUserBoards() {
               const cardIndex = updatedBoard.columns[i].cards.findIndex((card) => card.id === cardId)
               if (cardIndex !== -1) {
                 movedCard = updatedBoard.columns[i].cards[cardIndex]
-                updatedBoard.columns[i].cards = updatedBoard.columns[i].cards.filter((card) => card.id !== cardId)
+                updatedBoard.columns[i] = {
+                  ...updatedBoard.columns[i],
+                  cards: updatedBoard.columns[i].cards.filter((card) => card.id !== cardId),
+                }
                 break
               }
             }
@@ -793,10 +829,16 @@ export function useUserBoards() {
             if (movedCard) {
               const newColumnIndex = updatedBoard.columns.findIndex((col) => col.id === newColumnId)
               if (newColumnIndex !== -1) {
-                updatedBoard.columns[newColumnIndex].cards.push({
-                  ...movedCard,
-                  columnId: newColumnId,
-                })
+                updatedBoard.columns[newColumnIndex] = {
+                  ...updatedBoard.columns[newColumnIndex],
+                  cards: [
+                    ...updatedBoard.columns[newColumnIndex].cards,
+                    {
+                      ...movedCard,
+                      columnId: newColumnId,
+                    },
+                  ],
+                }
               }
             }
 
@@ -824,14 +866,17 @@ export function useUserBoards() {
           .eq("id", cardId)
 
         if (error) {
+          console.error("❌ Error moving card:", error)
           setError(error)
-          // Revert optimistic update on error
+          // Revert optimistic update
           fetchBoards()
           return
         }
+
+        console.log("✅ Card moved successfully")
       } catch (err) {
-        console.error("Error moving card:", err)
-        // Revert optimistic update on error
+        console.error("❌ Error moving card:", err)
+        // Revert optimistic update
         fetchBoards()
       }
     },
@@ -843,7 +888,6 @@ export function useUserBoards() {
     if (!userId) return
 
     try {
-      // Archive all boards instead of deleting
       const { error } = await supabase.from("boards").update({ is_archived: true }).eq("user_id", userId)
 
       if (error) {
@@ -851,7 +895,6 @@ export function useUserBoards() {
         return
       }
 
-      // Update local state
       setBoards([])
     } catch (err) {
       console.error("Error clearing user data:", err)
@@ -1003,8 +1046,6 @@ export function useUserBoards() {
     isLoaded,
     isLoading,
     error,
-    updateCounter, // Add this
-    forceUpdate, // Add this
     createBoard,
     updateBoard,
     deleteBoard,

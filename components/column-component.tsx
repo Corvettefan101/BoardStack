@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type { Column } from "@/types"
 import { CardComponent } from "./card-component"
 import { Button } from "@/components/ui/button"
@@ -19,18 +19,11 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
   const [newCardTitle, setNewCardTitle] = useState("")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState(column.title)
-  const [localColumn, setLocalColumn] = useState(column)
   const { createCard, updateColumn, deleteColumn, moveCard } = useUserBoards()
-
-  // Update local column state when prop changes
-  useEffect(() => {
-    console.log("ColumnComponent - Column prop changed:", column.id, column.cards?.length)
-    setLocalColumn(column)
-    setEditTitle(column.title)
-  }, [column, column.cards, column.cards?.length, column.title])
 
   const handleAddCard = async () => {
     if (newCardTitle.trim()) {
+      console.log("ColumnComponent - Creating card:", newCardTitle)
       await createCard(column.id, newCardTitle.trim())
       setNewCardTitle("")
       setShowAddCard(false)
@@ -38,7 +31,7 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
   }
 
   const handleUpdateTitle = async () => {
-    if (editTitle.trim()) {
+    if (editTitle.trim() && editTitle.trim() !== column.title) {
       await updateColumn(column.id, { title: editTitle.trim() })
     }
     setIsEditingTitle(false)
@@ -47,7 +40,8 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     const cardId = e.dataTransfer.getData("text/plain")
-    if (cardId) {
+    if (cardId && cardId !== column.id) {
+      console.log("ColumnComponent - Moving card:", cardId, "to column:", column.id)
       await moveCard(cardId, column.id)
     }
   }
@@ -68,16 +62,26 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
             onBlur={handleUpdateTitle}
-            onKeyDown={(e) => e.key === "Enter" && handleUpdateTitle()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleUpdateTitle()
+              } else if (e.key === "Escape") {
+                setEditTitle(column.title)
+                setIsEditingTitle(false)
+              }
+            }}
             className="font-semibold text-gray-900 bg-transparent border-none p-0 h-auto"
             autoFocus
           />
         ) : (
           <h3
             className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
-            onClick={() => setIsEditingTitle(true)}
+            onClick={() => {
+              setEditTitle(column.title)
+              setIsEditingTitle(true)
+            }}
           >
-            {localColumn.title} ({localColumn.cards?.length || 0})
+            {column.title} ({column.cards?.length || 0})
           </h3>
         )}
 
@@ -88,7 +92,14 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>Edit Title</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setEditTitle(column.title)
+                setIsEditingTitle(true)
+              }}
+            >
+              Edit Title
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => deleteColumn(column.id)} className="text-red-600">
               Delete Column
             </DropdownMenuItem>
@@ -97,7 +108,7 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
       </div>
 
       <div className="space-y-3 mb-4">
-        {localColumn.cards?.map((card) => (
+        {column.cards?.map((card) => (
           <CardComponent key={card.id} card={card} />
         ))}
       </div>
@@ -108,7 +119,14 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
             value={newCardTitle}
             onChange={(e) => setNewCardTitle(e.target.value)}
             placeholder="Enter card title..."
-            onKeyDown={(e) => e.key === "Enter" && handleAddCard()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleAddCard()
+              } else if (e.key === "Escape") {
+                setShowAddCard(false)
+                setNewCardTitle("")
+              }
+            }}
             autoFocus
           />
           <div className="flex space-x-2">

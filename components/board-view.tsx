@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type { Board } from "@/types"
 import { ColumnComponent } from "./column-component"
 import { Button } from "@/components/ui/button"
@@ -16,17 +16,11 @@ interface BoardViewProps {
 export function BoardView({ board }: BoardViewProps) {
   const [showAddColumn, setShowAddColumn] = useState(false)
   const [newColumnTitle, setNewColumnTitle] = useState("")
-  const [localBoard, setLocalBoard] = useState(board)
   const { createColumn } = useUserBoards()
-
-  // Update local board state when prop changes
-  useEffect(() => {
-    console.log("BoardView - Board prop changed:", board)
-    setLocalBoard(board)
-  }, [board, board.columns, board.columns?.length])
 
   const handleAddColumn = async () => {
     if (newColumnTitle.trim()) {
+      console.log("BoardView - Creating column:", newColumnTitle)
       await createColumn(board.id, newColumnTitle.trim())
       setNewColumnTitle("")
       setShowAddColumn(false)
@@ -39,7 +33,7 @@ export function BoardView({ board }: BoardViewProps) {
 
   return (
     <div className="flex space-x-6 overflow-x-auto pb-6" onDragOver={handleDragOver}>
-      {localBoard.columns?.map((column) => (
+      {board.columns?.map((column) => (
         <ColumnComponent key={column.id} column={column} />
       ))}
 

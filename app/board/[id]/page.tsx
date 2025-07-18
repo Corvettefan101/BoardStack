@@ -29,10 +29,6 @@ export default function BoardPage() {
 
   const board = boards.find((b) => b.id === boardId)
 
-  useEffect(() => {
-    console.log("BoardPage - Board found:", board?.id, board?.columns?.length)
-  }, [board])
-
   if (!isClient || !isLoaded) {
     return <LoadingScreen />
   }
@@ -73,7 +69,9 @@ export default function BoardPage() {
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{board.title}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {board.title} ({board.columns?.length || 0} columns)
+            </h1>
           </div>
           <BoardView board={board} />
         </div>
