@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Column } from "@/types"
 import { CardComponent } from "./card-component"
 import { Button } from "@/components/ui/button"
@@ -20,7 +19,18 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
   const [newCardTitle, setNewCardTitle] = useState("")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState(column.title)
+  const [renderKey, setRenderKey] = useState(0)
   const { createCard, updateColumn, deleteColumn, moveCard } = useUserBoards()
+
+  // Update edit title when column title changes
+  useEffect(() => {
+    setEditTitle(column.title)
+  }, [column.title])
+
+  // Force re-render when cards change
+  useEffect(() => {
+    setRenderKey((prev) => prev + 1)
+  }, [column.cards, column.cards?.length])
 
   const handleAddCard = () => {
     if (newCardTitle.trim()) {
@@ -51,6 +61,7 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
 
   return (
     <div
+      key={renderKey}
       className="flex-shrink-0 w-80 bg-gray-100 dark:bg-slate-800 rounded-lg p-4"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -70,7 +81,7 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
             className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
             onClick={() => setIsEditingTitle(true)}
           >
-            {column.title}
+            {column.title} ({column.cards?.length || 0})
           </h3>
         )}
 
@@ -90,8 +101,8 @@ export function ColumnComponent({ column }: ColumnComponentProps) {
       </div>
 
       <div className="space-y-3 mb-4">
-        {column.cards.map((card) => (
-          <CardComponent key={card.id} card={card} />
+        {column.cards?.map((card) => (
+          <CardComponent key={`${card.id}-${card.title}-${card.columnId}-${renderKey}`} card={card} />
         ))}
       </div>
 
