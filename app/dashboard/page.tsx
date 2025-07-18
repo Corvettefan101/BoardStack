@@ -9,7 +9,7 @@ import { useUserBoards } from "@/hooks/use-user-boards"
 
 export default function Dashboard() {
   const [isClient, setIsClient] = useState(false)
-  const { boards, isLoaded, ensureUserBoards } = useUserBoards()
+  const { boards, isLoaded, ensureUserBoards, forceRender } = useUserBoards()
 
   useEffect(() => {
     setIsClient(true)
@@ -20,6 +20,10 @@ export default function Dashboard() {
       ensureUserBoards()
     }
   }, [isClient, isLoaded, ensureUserBoards])
+
+  useEffect(() => {
+    console.log("Dashboard - Boards state updated:", boards.length, "forceRender:", forceRender)
+  }, [boards, forceRender])
 
   if (!isClient || !isLoaded) {
     return <LoadingScreen />
@@ -36,7 +40,7 @@ export default function Dashboard() {
               Organize your projects and boost productivity ({boards.length} boards)
             </p>
           </div>
-          <BoardGrid />
+          <BoardGrid key={`dashboard-${forceRender}`} />
         </main>
       </div>
     </ProtectedRoute>
